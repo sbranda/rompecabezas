@@ -1,0 +1,19 @@
+{
+  "name": "Taller de Rompecabezas",
+  "short_name": "Rompecabezas",
+  "description": "Arma rompecabezas digitales a partir de cualquier imagen: fotos propias, URLs o modelos incluidos.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#10161F",
+  "theme_color": "#10161F",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
