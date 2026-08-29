@@ -460,8 +460,7 @@
 
     order.forEach((idx, i)=>{
       const pd = piecesData[idx];
-      const el = document.createElement('img');
-      el.src = pd.canvas.toDataURL();
+      const el = pd.canvas;              // use the cut canvas directly, no base64 round-trip
       el.className = 'piece';
       el.style.width = pd.w+'px';
       el.style.height = pd.h+'px';
