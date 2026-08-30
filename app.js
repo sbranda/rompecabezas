@@ -363,12 +363,25 @@
 
     const rows = state.difficulty.rows, cols = state.difficulty.cols;
     const src = state.sourceImg;
-
-    // Work canvas: scale source to a comfortable board size
-    const availW = Math.min(document.body.clientWidth - 40, 900);
     const aspect = src.height / src.width;
-    const boardW = availW;
-    const boardH = Math.round(boardW * aspect);
+
+    // Fit the board fully inside whatever space boardWrap actually has
+    // (both width AND height), so the whole puzzle is visible without
+    // needing to scroll the board itself while playing.
+    const wrapRect = boardWrapEl.getBoundingClientRect();
+    const wrapPad = 16;
+    const availW = Math.max(200, (wrapRect.width || document.body.clientWidth) - wrapPad);
+    const availH = Math.max(200, (wrapRect.height || 420) - wrapPad);
+
+    let boardW, boardH;
+    if(availW * aspect <= availH){
+      boardW = Math.min(availW, 900);
+      boardH = boardW * aspect;
+    } else {
+      boardH = Math.min(availH, 900);
+      boardW = boardH / aspect;
+    }
+    boardW = Math.round(boardW); boardH = Math.round(boardH);
 
     state.boardW = boardW; state.boardH = boardH;
     const pieceW = boardW / cols, pieceH = boardH / rows;
@@ -385,7 +398,6 @@
 
     boardEl.style.width = boardW+'px';
     boardEl.style.height = boardH+'px';
-    boardWrapEl.style.height = Math.min(boardH+20, 520)+'px';
 
     // draw slot outlines (visual target grid)
     for(let r=0;r<rows;r++){
@@ -455,24 +467,15 @@
       [order[i],order[j]] = [order[j],order[i]];
     }
 
-    const trayCols = Math.max(3, Math.floor((document.body.clientWidth-40) / (pieceCanvasW*0.75)));
-    trayInnerEl.style.minHeight = (Math.ceil(piecesData.length/trayCols) * pieceCanvasH * 0.85 + 20)+'px';
-
-    order.forEach((idx, i)=>{
+    order.forEach((idx)=>{
       const pd = piecesData[idx];
       const el = pd.canvas;              // use the cut canvas directly, no base64 round-trip
-      el.className = 'piece';
+      el.className = 'piece in-tray';
       el.style.width = pd.w+'px';
       el.style.height = pd.h+'px';
       el.draggable = false;
 
-      const col = i % trayCols, rowI = Math.floor(i/trayCols);
-      const startX = col * (pieceCanvasW*0.8) + 6;
-      const startY = rowI * (pieceCanvasH*0.8) + 6;
-      el.style.left = startX+'px';
-      el.style.top = startY+'px';
-
-      trayInnerEl.appendChild(el);
+      trayInnerEl.appendChild(el);       // flex row lays it out automatically
 
       const pieceObj = {
         el, correctX: pd.correctX, correctY: pd.correctY,
@@ -481,6 +484,7 @@
       state.pieces.push(pieceObj);
       attachDrag(pieceObj);
     });
+
 
     state.totalPieces = piecesData.length;
     updateStats();
@@ -562,6 +566,7 @@
     });
 
     function finalizeInto(parent, left, top){
+      el.classList.remove('in-tray');
       el.style.position = 'absolute';
       el.style.transform = 'none';
       el.style.left = left+'px';
@@ -572,6 +577,17 @@
     // Instant placement (used for free drops that don't need a snap animation)
     function settleInto(parent, left, top){
       finalizeInto(parent, left, top);
+    }
+
+    // Sends the piece back into the tray's normal horizontal flow (no
+    // manual left/top bookkeeping needed — flexbox lays it out).
+    function returnToTray(){
+      el.style.position = '';
+      el.style.left = '';
+      el.style.top = '';
+      el.style.transform = 'none';
+      el.classList.add('in-tray');
+      trayInnerEl.appendChild(el);
     }
 
     // Animated placement: slides from wherever the finger let go into the
@@ -619,18 +635,16 @@
           setTimeout(onWin, 220);
         }
       } else {
-        const trayTop = document.getElementById('tray').getBoundingClientRect().top;
+        const trayRect = document.getElementById('tray').getBoundingClientRect();
         const overBoard = dropX > -state.tabSize && dropX < state.boardW &&
                            dropY > -state.tabSize && dropY < state.boardH &&
-                           e.clientY < trayTop;
+                           e.clientY < trayRect.top;
         if(overBoard){
+          el.classList.remove('in-tray');
           settleInto(boardEl, dropX, dropY);
           piece.container = 'board';
         } else {
-          const trayRect = trayInnerEl.getBoundingClientRect();
-          const tx = Math.max(0, e.clientX - offsetX - trayRect.left);
-          const ty = Math.max(0, e.clientY - offsetY - trayRect.top);
-          settleInto(trayInnerEl, tx, ty);
+          returnToTray();
           piece.container = 'tray';
         }
       }
@@ -686,14 +700,18 @@
   document.getElementById('generateBtn').addEventListener('click', ()=>{
     document.getElementById('setupPanel').classList.add('hide');
     document.getElementById('board-area').classList.add('visible');
+    document.body.classList.add('playing');
     setStep(3);
-    generatePuzzle();
+    // wait one frame so boardWrap has its final flex-allocated size
+    // before we measure it to fit the board.
+    requestAnimationFrame(()=>requestAnimationFrame(generatePuzzle));
   });
 
   document.getElementById('changeImgBtn').addEventListener('click', ()=>{
     stopTimer();
     document.getElementById('board-area').classList.remove('visible');
     document.getElementById('setupPanel').classList.remove('hide');
+    document.body.classList.remove('playing');
     setStep(1);
   });
 

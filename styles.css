@@ -186,6 +186,41 @@
   /* ---- Board ---- */
   #board-area{display:block;}
 
+  /* While playing, the whole screen becomes a fixed, non-scrolling layout:
+     compact header, board filling the remaining space, tray pinned as a
+     horizontal strip at the bottom. This removes the need to scroll the
+     page up/down between picking a piece and dropping it. */
+  html, body{height:100%;}
+  body.playing{overflow:hidden;}
+  body.playing .wrap{
+    height:100dvh;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+    padding:8px;
+    overflow:hidden;
+  }
+  body.playing .cartouche{flex:0 0 auto;margin-bottom:6px;}
+  body.playing .cartouche .title-cell,
+  body.playing .cartouche .steps-cell{display:none;}
+  body.playing .cartouche .stat-cell{padding:5px 12px;}
+  body.playing .cartouche .stat-value{font-size:15px;}
+  body.playing .cartouche .stat-label{font-size:8px;}
+  body.playing #setupPanel{display:none;}
+  body.playing #board-area.visible{
+    flex:1 1 auto;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+  }
+  body.playing #board-area .panel{
+    flex:0 0 auto;
+    padding:6px 8px;
+    margin-bottom:6px;
+  }
+  body.playing #board-area .row{margin-bottom:0;gap:6px;flex-wrap:nowrap;overflow-x:auto;}
+  body.playing .btn.secondary{padding:6px 9px;font-size:11px;white-space:nowrap;}
+
   #boardWrap{
     position:relative;
     background:var(--bg-panel);
@@ -193,9 +228,18 @@
     border-radius:var(--radius);
     overflow:auto;
     touch-action:none;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+  }
+  body.playing #boardWrap{
+    flex:1 1 auto;
+    min-height:0;
+    height:auto;
   }
   #board{
     position:relative;
+    flex:0 0 auto;
   }
   .slot{
     position:absolute;
@@ -214,6 +258,7 @@
     will-change:transform;
     transition:filter .12s ease;
   }
+  .piece.in-tray{position:relative;flex:0 0 auto;}
   .piece.dragging{
     cursor:grabbing;
     z-index:50;
@@ -231,24 +276,38 @@
   }
 
   #tray{
-    margin-top:10px;
+    margin-top:8px;
     background:var(--bg-panel);
     border:1px solid var(--steel-dim);
     border-radius:var(--radius);
-    padding:10px;
+    padding:8px 8px 10px;
+  }
+  body.playing #tray{
+    flex:0 0 auto;
+    margin-top:6px;
   }
   #tray h2{
     font-family:'Rajdhani',sans-serif;
-    font-size:12px;
+    font-size:11px;
     letter-spacing:0.1em;
     text-transform:uppercase;
     color:var(--paper-dim);
-    margin:0 0 8px;
+    margin:0 0 6px;
   }
   #trayInner{
-    position:relative;
-    min-height:120px;
+    display:flex;
+    flex-direction:row;
+    align-items:center;
+    gap:6px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    min-height:60px;
+    padding-bottom:4px;
+    scroll-snap-type:x proximity;
   }
+  #trayInner::-webkit-scrollbar{height:6px;}
+  #trayInner::-webkit-scrollbar-thumb{background:var(--steel);border-radius:3px;}
 
   #winOverlay{
     display:none;
