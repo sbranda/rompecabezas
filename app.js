@@ -16,10 +16,12 @@
   };
 
   const DIFFICULTIES = [
-    {key:'facil',  label:'Fácil',   rows:3, cols:4},
-    {key:'media',  label:'Media',   rows:4, cols:5},
-    {key:'dificil',label:'Difícil', rows:6, cols:7},
-    {key:'experto',label:'Experto', rows:8, cols:9},
+    {key:'facil',  label:'Fácil',    rows:3,  cols:4},
+    {key:'media',  label:'Media',    rows:4,  cols:5},
+    {key:'dificil',label:'Difícil',  rows:6,  cols:7},
+    {key:'experto',label:'Experto',  rows:8,  cols:9},
+    {key:'maestro',label:'Maestro',  rows:10, cols:12},
+    {key:'extremo',label:'Extremo',  rows:13, cols:15},
   ];
 
   // ---------------- Built-in demo image: procedural Eiffel Tower ----------------

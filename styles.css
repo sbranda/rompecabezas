@@ -285,7 +285,8 @@
   }
   body.playing #tray{
     flex:0 0 118px;
-    margin-top:6px;
+    margin-top:0;
+    margin-bottom:6px;
   }
   #tray h2{
     font-family:'Rajdhani',sans-serif;
