@@ -355,6 +355,58 @@
     ctx.closePath();
   }
 
+  // Paints one piece into `canvas` at a given rotation (0/90/180/270), baking
+  // the rotation directly into the pixels rather than using a CSS transform.
+  // This is what lets full 4-way rotation coexist with the drag-and-drop
+  // math: the canvas's own width/height ARE the piece's true footprint at
+  // that rotation (swapped for 90°/270°), so getBoundingClientRect and every
+  // position/offset calculation elsewhere just works, with zero awareness
+  // that rotation exists at all.
+  function paintPieceCanvas(canvas, edges, pieceW, pieceH, tabSize, srcCanvas, sx, sy, rotationDeg){
+    const pad = tabSize;
+    const pieceCanvasW = pieceW + pad*2;
+    const pieceCanvasH = pieceH + pad*2;
+    const rot = ((rotationDeg % 360) + 360) % 360;
+    const swapped = (rot === 90 || rot === 270);
+    canvas.width = swapped ? pieceCanvasH : pieceCanvasW;
+    canvas.height = swapped ? pieceCanvasW : pieceCanvasH;
+    const ctx = canvas.getContext('2d');
+
+    ctx.save();
+    ctx.translate(canvas.width/2, canvas.height/2);
+    ctx.rotate(rot * Math.PI/180);
+    ctx.translate(-pieceCanvasW/2, -pieceCanvasH/2);
+    // From here on, (0,0)-(pieceCanvasW,pieceCanvasH) is the piece's normal,
+    // unrotated drawing frame — identical to the original single-orientation code.
+
+    ctx.save();
+    ctx.translate(pad, pad);
+    tracePiecePath(ctx, pieceW, pieceH, edges, tabSize);
+    ctx.clip();
+    ctx.drawImage(srcCanvas, sx, sy, pieceCanvasW, pieceCanvasH, -pad, -pad, pieceCanvasW, pieceCanvasH);
+    ctx.restore();
+
+    // subtle edge stroke for definition
+    ctx.save();
+    ctx.translate(pad, pad);
+    tracePiecePath(ctx, pieceW, pieceH, edges, tabSize);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(16,20,28,0.55)';
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  const HAND_MAX_H = 88; // cap on how tall a loose piece renders, whatever its rotation
+
+  // Scales `canvasEl`'s current (possibly rotation-swapped) pixel size down
+  // to the shared "hand size" budget, preserving its aspect ratio exactly.
+  function handSizeFor(canvasEl){
+    const scale = Math.min(1, HAND_MAX_H / canvasEl.height);
+    return { w: canvasEl.width*scale, h: canvasEl.height*scale };
+  }
+
   // ---------------- Puzzle generation ----------------
   const boardWrapEl = document.getElementById('boardWrap');
   const boardEl = document.getElementById('board');
@@ -403,6 +455,7 @@
     const srcCanvas = document.createElement('canvas');
     srcCanvas.width = boardW; srcCanvas.height = boardH;
     srcCanvas.getContext('2d').drawImage(src, 0,0, boardW, boardH);
+    state.srcCanvas = srcCanvas; // kept for repainting pieces later (tap-to-rotate)
 
     const {horiz, vert} = buildEdgeMatrices(rows, cols);
 
@@ -426,17 +479,6 @@
     const pieceCanvasW = pieceW + pad*2;
     const pieceCanvasH = pieceH + pad*2;
 
-    // "Hand size": the size pieces render at while loose (in the tray or
-    // being carried), independent of their true board size. Capping this
-    // keeps the tray's height constant and predictable, and — just as
-    // importantly — means a piece never visually jumps in size the instant
-    // you pick it up. It only grows to its true size at the moment it
-    // snaps correctly into the board.
-    const HAND_MAX_H = 88;
-    const handScale = Math.min(1, HAND_MAX_H / pieceCanvasH);
-    const handW = pieceCanvasW * handScale;
-    const handH = pieceCanvasH * handScale;
-
     const piecesData = [];
 
     for(let r=0;r<rows;r++){
@@ -448,36 +490,19 @@
           bottom: r===rows-1 ? 0 : vert[r][c],
         };
 
-        const pc = document.createElement('canvas');
-        pc.width = pieceCanvasW; pc.height = pieceCanvasH;
-        const pctx = pc.getContext('2d');
-
-        pctx.save();
-        pctx.translate(pad, pad);
-        tracePiecePath(pctx, pieceW, pieceH, edges, tabSize);
-        pctx.restore();
-
-        pctx.save();
-        pctx.translate(pad, pad);
-        tracePiecePath(pctx, pieceW, pieceH, edges, tabSize);
-        pctx.clip();
         const sx = c*pieceW - pad, sy = r*pieceH - pad;
-        pctx.drawImage(srcCanvas, sx, sy, pieceCanvasW, pieceCanvasH, -pad, -pad, pieceCanvasW, pieceCanvasH);
-        pctx.restore();
+        const rotation = state.rotationEnabled ? [0,90,180,270][Math.floor(Math.random()*4)] : 0;
 
-        // subtle edge stroke for definition
-        pctx.save();
-        pctx.translate(pad, pad);
-        tracePiecePath(pctx, pieceW, pieceH, edges, tabSize);
-        pctx.lineWidth = 1;
-        pctx.strokeStyle = 'rgba(16,20,28,0.55)';
-        pctx.stroke();
-        pctx.restore();
+        const pc = document.createElement('canvas');
+        paintPieceCanvas(pc, edges, pieceW, pieceH, tabSize, srcCanvas, sx, sy, rotation);
 
         const correctX = c*pieceW - pad;
         const correctY = r*pieceH - pad;
 
-        piecesData.push({r,c, canvas:pc, correctX, correctY, w:pieceCanvasW, h:pieceCanvasH});
+        piecesData.push({
+          r, c, canvas:pc, correctX, correctY, w:pieceCanvasW, h:pieceCanvasH,
+          edges, sx, sy, rotation,
+        });
       }
     }
 
@@ -492,20 +517,20 @@
       const pd = piecesData[idx];
       const el = pd.canvas;              // use the cut canvas directly, no base64 round-trip
       el.className = 'piece in-tray';
-      el.style.width = handW+'px';
-      el.style.height = handH+'px';
+      const hs = handSizeFor(el);
+      el.style.width = hs.w+'px';
+      el.style.height = hs.h+'px';
+      el.style.transform = 'none';       // rotation is baked into the pixels, not CSS
       el.draggable = false;
-
-      const rotation = state.rotationEnabled && Math.random() < 0.5 ? 180 : 0;
-      el.style.transform = rotation ? 'rotate(180deg)' : 'none';
 
       trayInnerEl.appendChild(el);       // flex row lays it out automatically
 
       const pieceObj = {
         el, correctX: pd.correctX, correctY: pd.correctY,
-        trueW: pd.w, trueH: pd.h,        // full size, applied on correct placement
-        w: handW, h: handH, placed:false, container:'tray',
-        rotation,                        // 0 = correct orientation, 180 = flipped
+        trueW: pd.w, trueH: pd.h,        // full size at rotation 0, applied on correct placement
+        edges: pd.edges, sx: pd.sx, sy: pd.sy,   // needed to repaint at a new rotation on tap
+        placed:false, container:'tray',
+        rotation: pd.rotation,           // 0 = correct orientation; 90/180/270 = needs a flip
       };
       state.pieces.push(pieceObj);
       attachDrag(pieceObj);
@@ -558,7 +583,7 @@
         rafId = null;
         const x = lastX - offsetX;
         const y = lastY - offsetY;
-        el.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${piece.rotation}deg)`;
+        el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
       });
     }
 
@@ -577,7 +602,7 @@
       el.style.left = '0px';
       el.style.top = '0px';
       el.style.margin = '0';
-      el.style.transform = `translate3d(${startRect.left}px, ${startRect.top}px, 0) rotate(${piece.rotation}deg)`;
+      el.style.transform = `translate3d(${startRect.left}px, ${startRect.top}px, 0)`;
       getDragStage().appendChild(el);
       scheduleMove();
     }
@@ -591,16 +616,18 @@
       if(e.pointerId !== activePointerId) return;
       lastX = e.clientX; lastY = e.clientY;
 
-      if(mode === 'pending' && piece.container === 'tray'){
+      if((mode === 'pending' || mode === 'scrolling') && piece.container === 'tray'){
         // The finger physically leaving the tray strip downward is an
         // unambiguous "lift" signal — it always wins, no matter the angle
-        // of the gesture so far. This matters because the tray sits above
-        // the board: a piece can legitimately need a lot of *sideways*
-        // travel to reach its target column, which would otherwise look
-        // like a scroll.
+        // of the gesture so far or whether we'd already started treating it
+        // as a scroll. This matters because the tray sits above the board:
+        // a piece can legitimately need a lot of *sideways* travel to reach
+        // its target column (which can look like a scroll at first), and
+        // the finger crossing below the tray at any point must still be
+        // able to promote the gesture to a lift.
         if(e.clientY > trayBottomAtStart + EXIT_MARGIN){
           beginLift();
-        } else {
+        } else if(mode === 'pending'){
           const dx = e.clientX - startX, dy = e.clientY - startY;
           const adx = Math.abs(dx), ady = Math.abs(dy);
           if(adx < DEADZONE && ady < DEADZONE) return; // not enough movement to decide yet
@@ -681,7 +708,7 @@
       // Correct placement always means rotation 0 (enforced before this is
       // ever called with growToTrue); free drops keep whatever rotation the
       // piece currently has.
-      el.style.transform = growToTrue ? 'none' : (piece.rotation ? 'rotate(180deg)' : 'none');
+      el.style.transform = 'none'; // rotation lives in the pixels, never in CSS
       el.style.left = left+'px';
       el.style.top = top+'px';
       if(growToTrue){
@@ -702,51 +729,58 @@
       el.style.position = '';
       el.style.left = '';
       el.style.top = '';
-      el.style.transform = piece.rotation ? 'rotate(180deg)' : 'none';
-      el.style.width = piece.w+'px';
-      el.style.height = piece.h+'px';
+      el.style.transform = 'none';
+      const hs = handSizeFor(el);
+      el.style.width = hs.w+'px';
+      el.style.height = hs.h+'px';
       el.classList.add('in-tray');
       trayInnerEl.appendChild(el);
     }
 
-    // Tap-to-flip: a plain tap (no drag) toggles the piece between right-side
-    // up and upside-down. Only rotation-mode pieces ever start flipped, and
-    // only rotation 0 ever counts as a valid placement (see endDrag). If the
-    // piece is already sitting exactly on its correct slot when flipped
-    // right-side up, the flip itself completes the placement — no need to
-    // pick it up and drop it again.
+    // Tap-to-rotate: a plain tap (no drag) turns the piece 90° clockwise.
+    // Rotation is baked directly into the canvas's own pixels (see
+    // paintPieceCanvas) rather than applied as a CSS transform — that's
+    // what lets 90°/270° swap the piece's footprint correctly without any
+    // special-casing in the drag math, which only ever looks at the
+    // element's plain box model. Only rotation 0 counts as a valid
+    // placement (see endDrag). If the piece is already sitting exactly on
+    // its correct slot when rotated back to 0, the tap completes the
+    // placement on its own — no need to pick it up and drop it again.
     function rotatePiece(){
-      const from = piece.rotation;
-      const to = from === 180 ? 0 : 180;
-      const fromT = from ? 'rotate(180deg)' : 'rotate(0deg)';
-      const toT = to ? 'rotate(180deg)' : 'rotate(0deg)';
-      const anim = el.animate(
-        [{transform: fromT}, {transform: toT}],
-        {duration:180, easing:'ease-in-out'}
-      );
-      anim.onfinish = () => {
-        piece.rotation = to;
-        el.style.transform = to ? 'rotate(180deg)' : 'none';
+      piece.rotation = (piece.rotation + 90) % 360;
+      paintPieceCanvas(el, piece.edges, state.pieceW, state.pieceH, state.tabSize, state.srcCanvas, piece.sx, piece.sy, piece.rotation);
 
-        if(to === 0 && piece.container === 'board' && !piece.placed){
-          const curLeft = parseFloat(el.style.left) || 0;
-          const curTop = parseFloat(el.style.top) || 0;
-          const sitting = Math.hypot(curLeft - piece.correctX, curTop - piece.correctY) < 1;
-          if(sitting){
-            piece.placed = true;
-            el.classList.add('placed');
-            el.style.cursor = 'default';
-            el.style.width = piece.trueW+'px';
-            el.style.height = piece.trueH+'px';
-            state.placedCount++;
-            updateStats();
-            pulse(el);
-            if(state.placedCount === state.totalPieces){
-              setTimeout(onWin, 220);
-            }
+      // Deliberately do NOT try to re-center the piece as its box resizes
+      // (90°/270° swap width and height) — anchoring from the existing
+      // top-left keeps this simple and, crucially, keeps a piece that's
+      // sitting exactly on its correct slot exactly there across every tap,
+      // which is what the "does this complete the placement" check below
+      // depends on.
+      const hs = handSizeFor(el);
+      el.style.width = hs.w+'px';
+      el.style.height = hs.h+'px';
+
+      pulse(el);
+
+      if(piece.rotation === 0 && piece.container === 'board' && !piece.placed){
+        const curLeft = parseFloat(el.style.left) || 0;
+        const curTop = parseFloat(el.style.top) || 0;
+        const sitting = Math.hypot(curLeft - piece.correctX, curTop - piece.correctY) < 1;
+        if(sitting){
+          piece.placed = true;
+          el.classList.add('placed');
+          el.style.cursor = 'default';
+          el.style.left = piece.correctX+'px';
+          el.style.top = piece.correctY+'px';
+          el.style.width = piece.trueW+'px';
+          el.style.height = piece.trueH+'px';
+          state.placedCount++;
+          updateStats();
+          if(state.placedCount === state.totalPieces){
+            setTimeout(onWin, 220);
           }
         }
-      };
+      }
     }
 
     // Animated placement: slides from wherever the finger let go into the
