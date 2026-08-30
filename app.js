@@ -13,6 +13,7 @@
     tabSize: 0,
     timerStart: null,
     timerInterval: null,
+    rotationEnabled: false,
   };
 
   const DIFFICULTIES = [
@@ -285,6 +286,13 @@
   });
   state.difficulty = DIFFICULTIES[1];
 
+  // ---------------- UI: rotation toggle ----------------
+  const rotationToggleEl = document.getElementById('rotationToggle');
+  rotationToggleEl.addEventListener('click', ()=>{
+    state.rotationEnabled = !state.rotationEnabled;
+    rotationToggleEl.classList.toggle('active', state.rotationEnabled);
+  });
+
   // ---------------- Jigsaw geometry ----------------
   // edge sign convention: +1 = tab pointing outward (away from piece a's own body, into neighbor)
   //                        -1 = blank / indentation
@@ -488,12 +496,16 @@
       el.style.height = handH+'px';
       el.draggable = false;
 
+      const rotation = state.rotationEnabled && Math.random() < 0.5 ? 180 : 0;
+      el.style.transform = rotation ? 'rotate(180deg)' : 'none';
+
       trayInnerEl.appendChild(el);       // flex row lays it out automatically
 
       const pieceObj = {
         el, correctX: pd.correctX, correctY: pd.correctY,
         trueW: pd.w, trueH: pd.h,        // full size, applied on correct placement
-        w: handW, h: handH, placed:false, container:'tray'
+        w: handW, h: handH, placed:false, container:'tray',
+        rotation,                        // 0 = correct orientation, 180 = flipped
       };
       state.pieces.push(pieceObj);
       attachDrag(pieceObj);
@@ -523,11 +535,10 @@
 
   function attachDrag(piece){
     const el = piece.el;
-    // mode: 'idle' -> 'pending' (only when starting from the tray, while we
-    // wait to see which way the finger moves) -> either 'scrolling' (hand
-    // the gesture to the tray's horizontal scroll) or 'dragging' (lift the
-    // piece). Pieces already on the board skip 'pending' and lift right away,
-    // since there's no scroll ambiguity there.
+    // mode: 'idle' -> 'pending' (we wait to see whether this becomes a tap,
+    // a scroll, or a lift) -> 'scrolling' (hand the gesture to the tray's
+    // horizontal scroll), 'dragging' (lift the piece), or released while
+    // still 'pending' (a tap — used to flip a rotated piece right-side up).
     let mode = 'idle';
     let activePointerId = null;
     let offsetX = 0, offsetY = 0;
@@ -547,7 +558,7 @@
         rafId = null;
         const x = lastX - offsetX;
         const y = lastY - offsetY;
-        el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+        el.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${piece.rotation}deg)`;
       });
     }
 
@@ -566,7 +577,7 @@
       el.style.left = '0px';
       el.style.top = '0px';
       el.style.margin = '0';
-      el.style.transform = `translate3d(${startRect.left}px, ${startRect.top}px, 0)`;
+      el.style.transform = `translate3d(${startRect.left}px, ${startRect.top}px, 0) rotate(${piece.rotation}deg)`;
       getDragStage().appendChild(el);
       scheduleMove();
     }
@@ -580,26 +591,36 @@
       if(e.pointerId !== activePointerId) return;
       lastX = e.clientX; lastY = e.clientY;
 
-      // The finger physically leaving the tray strip downward is an
-      // unambiguous "lift" signal — it always wins, no matter the angle of
-      // the gesture so far. This matters because the tray sits above the
-      // board: a piece can legitimately need a lot of *sideways* travel to
-      // reach its target column, which would otherwise look like a scroll.
-      if((mode === 'pending' || mode === 'scrolling') && e.clientY > trayBottomAtStart + EXIT_MARGIN){
-        beginLift();
-      }
-
-      if(mode === 'pending'){
-        const dx = e.clientX - startX, dy = e.clientY - startY;
-        const adx = Math.abs(dx), ady = Math.abs(dy);
-        if(adx < DEADZONE && ady < DEADZONE) return; // not enough movement to decide yet
-        if(adx > ady * HORIZ_BIAS){
-          // Clearly a horizontal swipe, still inside the tray: scroll it
-          // instead of picking the piece up.
-          mode = 'scrolling';
-          lastScrollX = e.clientX;
-        } else {
+      if(mode === 'pending' && piece.container === 'tray'){
+        // The finger physically leaving the tray strip downward is an
+        // unambiguous "lift" signal — it always wins, no matter the angle
+        // of the gesture so far. This matters because the tray sits above
+        // the board: a piece can legitimately need a lot of *sideways*
+        // travel to reach its target column, which would otherwise look
+        // like a scroll.
+        if(e.clientY > trayBottomAtStart + EXIT_MARGIN){
           beginLift();
+        } else {
+          const dx = e.clientX - startX, dy = e.clientY - startY;
+          const adx = Math.abs(dx), ady = Math.abs(dy);
+          if(adx < DEADZONE && ady < DEADZONE) return; // not enough movement to decide yet
+          if(adx > ady * HORIZ_BIAS){
+            // Clearly a horizontal swipe, still inside the tray: scroll it
+            // instead of picking the piece up.
+            mode = 'scrolling';
+            lastScrollX = e.clientX;
+          } else {
+            beginLift();
+          }
+        }
+      } else if(mode === 'pending'){
+        // Loose piece already on the board: no scroll to hand off to, so
+        // any real movement in any direction just means "lift it".
+        const dx = e.clientX - startX, dy = e.clientY - startY;
+        if(Math.abs(dx) > DEADZONE || Math.abs(dy) > DEADZONE){
+          beginLift();
+        } else {
+          return;
         }
       }
 
@@ -616,13 +637,20 @@
     function onPointerUp(e){
       if(e.pointerId !== activePointerId) return;
       const wasDragging = (mode === 'dragging');
+      const wasPending = (mode === 'pending');
       mode = 'idle';
       activePointerId = null;
       document.removeEventListener('pointermove', onPointerMove);
       document.removeEventListener('pointerup', onPointerUp);
       document.removeEventListener('pointercancel', onPointerUp);
       if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
-      if(wasDragging) endDrag(e);
+      if(wasDragging){
+        endDrag(e);
+      } else if(wasPending && state.rotationEnabled && !piece.placed){
+        // Released without ever moving enough to count as a scroll or a
+        // lift: that's a tap, and taps flip a piece right-side up.
+        rotatePiece();
+      }
     }
 
     el.addEventListener('pointerdown', (e)=>{
@@ -638,19 +666,22 @@
       document.addEventListener('pointerup', onPointerUp);
       document.addEventListener('pointercancel', onPointerUp);
 
+      // Every gesture starts as "pending" — this is what lets a plain tap
+      // (no meaningful movement) be recognized and used to flip a rotated
+      // piece, instead of every touch immediately picking the piece up.
+      mode = 'pending';
       if(piece.container === 'tray'){
-        // Wait for the first real movement before deciding scroll vs lift.
-        mode = 'pending';
         trayBottomAtStart = trayInnerEl.getBoundingClientRect().bottom;
-      } else {
-        beginLift();
       }
     });
 
     function finalizeInto(parent, left, top, growToTrue){
       el.classList.remove('in-tray');
       el.style.position = 'absolute';
-      el.style.transform = 'none';
+      // Correct placement always means rotation 0 (enforced before this is
+      // ever called with growToTrue); free drops keep whatever rotation the
+      // piece currently has.
+      el.style.transform = growToTrue ? 'none' : (piece.rotation ? 'rotate(180deg)' : 'none');
       el.style.left = left+'px';
       el.style.top = top+'px';
       if(growToTrue){
@@ -671,11 +702,51 @@
       el.style.position = '';
       el.style.left = '';
       el.style.top = '';
-      el.style.transform = 'none';
+      el.style.transform = piece.rotation ? 'rotate(180deg)' : 'none';
       el.style.width = piece.w+'px';
       el.style.height = piece.h+'px';
       el.classList.add('in-tray');
       trayInnerEl.appendChild(el);
+    }
+
+    // Tap-to-flip: a plain tap (no drag) toggles the piece between right-side
+    // up and upside-down. Only rotation-mode pieces ever start flipped, and
+    // only rotation 0 ever counts as a valid placement (see endDrag). If the
+    // piece is already sitting exactly on its correct slot when flipped
+    // right-side up, the flip itself completes the placement — no need to
+    // pick it up and drop it again.
+    function rotatePiece(){
+      const from = piece.rotation;
+      const to = from === 180 ? 0 : 180;
+      const fromT = from ? 'rotate(180deg)' : 'rotate(0deg)';
+      const toT = to ? 'rotate(180deg)' : 'rotate(0deg)';
+      const anim = el.animate(
+        [{transform: fromT}, {transform: toT}],
+        {duration:180, easing:'ease-in-out'}
+      );
+      anim.onfinish = () => {
+        piece.rotation = to;
+        el.style.transform = to ? 'rotate(180deg)' : 'none';
+
+        if(to === 0 && piece.container === 'board' && !piece.placed){
+          const curLeft = parseFloat(el.style.left) || 0;
+          const curTop = parseFloat(el.style.top) || 0;
+          const sitting = Math.hypot(curLeft - piece.correctX, curTop - piece.correctY) < 1;
+          if(sitting){
+            piece.placed = true;
+            el.classList.add('placed');
+            el.style.cursor = 'default';
+            el.style.width = piece.trueW+'px';
+            el.style.height = piece.trueH+'px';
+            state.placedCount++;
+            updateStats();
+            pulse(el);
+            if(state.placedCount === state.totalPieces){
+              setTimeout(onWin, 220);
+            }
+          }
+        }
+      };
     }
 
     // Animated placement: slides from wherever the finger let go into the
@@ -711,8 +782,10 @@
 
       const threshold = Math.min(state.pieceW, state.pieceH) * 0.32;
       const dist = Math.hypot(dropX - piece.correctX, dropY - piece.correctY);
+      const positionCorrect = dist < threshold;
+      const correctlyOriented = piece.rotation === 0;
 
-      if(dist < threshold){
+      if(positionCorrect && correctlyOriented){
         piece.placed = true;
         piece.container = 'board';
         el.classList.add('placed');
@@ -724,6 +797,14 @@
         if(state.placedCount === state.totalPieces){
           setTimeout(onWin, 220);
         }
+      } else if(positionCorrect){
+        // Right spot, wrong way up: snap it exactly into the slot so it
+        // looks settled, but don't count it as placed yet. A tap will flip
+        // it — and since it's already sitting exactly on its slot, that tap
+        // completes the placement on its own (see rotatePiece()).
+        el.classList.remove('in-tray');
+        settleInto(boardEl, piece.correctX, piece.correctY);
+        piece.container = 'board';
       } else {
         // A drop counts as "on the board" purely based on the board's own
         // bounds — no need to reason about where the tray sits relative to
