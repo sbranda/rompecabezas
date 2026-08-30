@@ -419,6 +419,45 @@
     state.placedCount = 0;
   }
 
+  // ---------------- Hint: double-tap an empty slot to find its piece ----------------
+  function attachSlotDoubleTap(slot){
+    let lastTap = 0;
+    slot.addEventListener('pointerup', (e)=>{
+      const now = Date.now();
+      if(now - lastTap < 350){
+        lastTap = 0;
+        highlightPieceForSlot(slot);
+      } else {
+        lastTap = now;
+      }
+    });
+  }
+
+  function highlightPieceForSlot(slot){
+    const cx = parseFloat(slot.dataset.correctX);
+    const cy = parseFloat(slot.dataset.correctY);
+    const target = state.pieces.find(p =>
+      !p.placed && Math.abs(p.correctX - cx) < 0.5 && Math.abs(p.correctY - cy) < 0.5
+    );
+    if(!target) return; // already solved (or, in edge cases, mid-animation)
+
+    // If it's sitting in the tray's horizontal strip, scroll it into view
+    // before drawing attention to it — a highlight off-screen helps no one.
+    if(target.container === 'tray'){
+      const elRect = target.el.getBoundingClientRect();
+      const trayRect = trayInnerEl.getBoundingClientRect();
+      if(elRect.left < trayRect.left || elRect.right > trayRect.right){
+        const delta = (elRect.left + elRect.width/2) - (trayRect.left + trayRect.width/2);
+        trayInnerEl.scrollLeft += delta;
+      }
+    }
+
+    target.el.classList.remove('hint'); // restart the animation if tapped again mid-highlight
+    void target.el.offsetWidth; // force reflow so the class removal registers
+    target.el.classList.add('hint');
+    setTimeout(()=>target.el.classList.remove('hint'), 1600);
+  }
+
   function generatePuzzle(){
     clearBoard();
     stopTimer();
@@ -471,6 +510,9 @@
         slot.style.top = (r*pieceH)+'px';
         slot.style.width = pieceW+'px';
         slot.style.height = pieceH+'px';
+        slot.dataset.correctX = c*pieceW - tabSize;
+        slot.dataset.correctY = r*pieceH - tabSize;
+        attachSlotDoubleTap(slot);
         boardEl.appendChild(slot);
       }
     }

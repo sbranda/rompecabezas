@@ -270,6 +270,20 @@
     transition:transform .16s cubic-bezier(.2,.9,.3,1.2);
   }
   .piece.placed{z-index:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.3));}
+  .piece.hint{
+    z-index:40;
+    animation: hint-glow 0.5s ease-in-out 3;
+  }
+  @keyframes hint-glow{
+    0%, 100% {
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.55));
+      outline: 3px solid rgba(228,193,88,0);
+    }
+    50% {
+      filter: drop-shadow(0 0 14px rgba(228,193,88,0.95)) drop-shadow(0 0 4px rgba(228,193,88,0.9));
+      outline: 3px solid rgba(228,193,88,0.9);
+    }
+  }
   #dragStage{
     position:fixed;inset:0;
     pointer-events:none;
