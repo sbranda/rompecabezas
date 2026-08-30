@@ -523,11 +523,23 @@
 
   function attachDrag(piece){
     const el = piece.el;
-    let dragging = false;
+    // mode: 'idle' -> 'pending' (only when starting from the tray, while we
+    // wait to see which way the finger moves) -> either 'scrolling' (hand
+    // the gesture to the tray's horizontal scroll) or 'dragging' (lift the
+    // piece). Pieces already on the board skip 'pending' and lift right away,
+    // since there's no scroll ambiguity there.
+    let mode = 'idle';
     let activePointerId = null;
     let offsetX = 0, offsetY = 0;
+    let startX = 0, startY = 0;
     let lastX = 0, lastY = 0;        // latest pointer position
+    let lastScrollX = 0;
+    let trayBottomAtStart = 0;
     let rafId = null;
+
+    const DEADZONE = 6;          // px of wiggle room before committing to a gesture
+    const HORIZ_BIAS = 1.3;      // how much more horizontal than vertical movement must be to count as a scroll
+    const EXIT_MARGIN = 10;      // px below the tray's bottom edge that unambiguously means "lifting out"
 
     function scheduleMove(){
       if(rafId) return;
@@ -539,44 +551,100 @@
       });
     }
 
+    let startRect = null;            // piece's resting rect, captured at pointerdown
+
+    function beginLift(){
+      mode = 'dragging';
+      el.classList.add('dragging');
+      // offsetX/offsetY were already computed at pointerdown from startRect
+      // and must NOT be recalculated here — this can run on a later
+      // pointermove (once we've decided "lift, not scroll"), and redoing the
+      // math against that later, already-moved pointer position would
+      // silently shift the grab point, throwing off every drop-position
+      // check downstream (including the exact-slot snap test).
+      el.style.position = 'fixed';
+      el.style.left = '0px';
+      el.style.top = '0px';
+      el.style.margin = '0';
+      el.style.transform = `translate3d(${startRect.left}px, ${startRect.top}px, 0)`;
+      getDragStage().appendChild(el);
+      scheduleMove();
+    }
+
     // NOTE: we deliberately do NOT use setPointerCapture here. The piece
     // gets reparented into #dragStage the moment the drag starts, and in
     // practice that reparenting causes captured pointer events to stop
     // arriving. Listening on `document` instead is what actually keeps the
     // drag smooth and reliable, on both mouse and touch.
     function onPointerMove(e){
-      if(!dragging || e.pointerId !== activePointerId) return;
+      if(e.pointerId !== activePointerId) return;
       lastX = e.clientX; lastY = e.clientY;
-      scheduleMove();
+
+      // The finger physically leaving the tray strip downward is an
+      // unambiguous "lift" signal — it always wins, no matter the angle of
+      // the gesture so far. This matters because the tray sits above the
+      // board: a piece can legitimately need a lot of *sideways* travel to
+      // reach its target column, which would otherwise look like a scroll.
+      if((mode === 'pending' || mode === 'scrolling') && e.clientY > trayBottomAtStart + EXIT_MARGIN){
+        beginLift();
+      }
+
+      if(mode === 'pending'){
+        const dx = e.clientX - startX, dy = e.clientY - startY;
+        const adx = Math.abs(dx), ady = Math.abs(dy);
+        if(adx < DEADZONE && ady < DEADZONE) return; // not enough movement to decide yet
+        if(adx > ady * HORIZ_BIAS){
+          // Clearly a horizontal swipe, still inside the tray: scroll it
+          // instead of picking the piece up.
+          mode = 'scrolling';
+          lastScrollX = e.clientX;
+        } else {
+          beginLift();
+        }
+      }
+
+      if(mode === 'scrolling'){
+        trayInnerEl.scrollLeft -= (e.clientX - lastScrollX);
+        lastScrollX = e.clientX;
+        return;
+      }
+
+      if(mode === 'dragging'){
+        scheduleMove();
+      }
     }
     function onPointerUp(e){
-      if(!dragging || e.pointerId !== activePointerId) return;
-      endDrag(e);
+      if(e.pointerId !== activePointerId) return;
+      const wasDragging = (mode === 'dragging');
+      mode = 'idle';
+      activePointerId = null;
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+      document.removeEventListener('pointercancel', onPointerUp);
+      if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
+      if(wasDragging) endDrag(e);
     }
 
     el.addEventListener('pointerdown', (e)=>{
       if(piece.placed) return;
-      dragging = true;
       activePointerId = e.pointerId;
-      el.classList.add('dragging');
-
-      const rect = el.getBoundingClientRect();
-      offsetX = e.clientX - rect.left;
-      offsetY = e.clientY - rect.top;
+      startX = e.clientX; startY = e.clientY;
       lastX = e.clientX; lastY = e.clientY;
-
-      // Freeze the element at its current viewport position, then move it
-      // to the drag stage exactly once. All subsequent motion is a transform.
-      el.style.position = 'fixed';
-      el.style.left = '0px';
-      el.style.top = '0px';
-      el.style.margin = '0';
-      el.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0)`;
-      getDragStage().appendChild(el);
+      startRect = el.getBoundingClientRect();
+      offsetX = e.clientX - startRect.left;
+      offsetY = e.clientY - startRect.top;
 
       document.addEventListener('pointermove', onPointerMove);
       document.addEventListener('pointerup', onPointerUp);
       document.addEventListener('pointercancel', onPointerUp);
+
+      if(piece.container === 'tray'){
+        // Wait for the first real movement before deciding scroll vs lift.
+        mode = 'pending';
+        trayBottomAtStart = trayInnerEl.getBoundingClientRect().bottom;
+      } else {
+        beginLift();
+      }
     });
 
     function finalizeInto(parent, left, top, growToTrue){
@@ -634,13 +702,6 @@
     }
 
     function endDrag(e){
-      if(!dragging) return;
-      dragging = false;
-      activePointerId = null;
-      document.removeEventListener('pointermove', onPointerMove);
-      document.removeEventListener('pointerup', onPointerUp);
-      document.removeEventListener('pointercancel', onPointerUp);
-      if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
       el.classList.remove('dragging');
       el.style.margin = '';
 
@@ -664,10 +725,11 @@
           setTimeout(onWin, 220);
         }
       } else {
-        const trayRect = document.getElementById('tray').getBoundingClientRect();
+        // A drop counts as "on the board" purely based on the board's own
+        // bounds — no need to reason about where the tray sits relative to
+        // it, which is what broke when the tray moved above the board.
         const overBoard = dropX > -state.tabSize && dropX < state.boardW &&
-                           dropY > -state.tabSize && dropY < state.boardH &&
-                           e.clientY < trayRect.top;
+                           dropY > -state.tabSize && dropY < state.boardH;
         if(overBoard){
           el.classList.remove('in-tray');
           settleInto(boardEl, dropX, dropY);
