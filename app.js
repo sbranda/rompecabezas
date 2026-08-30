@@ -416,6 +416,17 @@
     const pieceCanvasW = pieceW + pad*2;
     const pieceCanvasH = pieceH + pad*2;
 
+    // "Hand size": the size pieces render at while loose (in the tray or
+    // being carried), independent of their true board size. Capping this
+    // keeps the tray's height constant and predictable, and — just as
+    // importantly — means a piece never visually jumps in size the instant
+    // you pick it up. It only grows to its true size at the moment it
+    // snaps correctly into the board.
+    const HAND_MAX_H = 88;
+    const handScale = Math.min(1, HAND_MAX_H / pieceCanvasH);
+    const handW = pieceCanvasW * handScale;
+    const handH = pieceCanvasH * handScale;
+
     const piecesData = [];
 
     for(let r=0;r<rows;r++){
@@ -471,15 +482,16 @@
       const pd = piecesData[idx];
       const el = pd.canvas;              // use the cut canvas directly, no base64 round-trip
       el.className = 'piece in-tray';
-      el.style.width = pd.w+'px';
-      el.style.height = pd.h+'px';
+      el.style.width = handW+'px';
+      el.style.height = handH+'px';
       el.draggable = false;
 
       trayInnerEl.appendChild(el);       // flex row lays it out automatically
 
       const pieceObj = {
         el, correctX: pd.correctX, correctY: pd.correctY,
-        w: pd.w, h: pd.h, placed:false, container:'tray'
+        trueW: pd.w, trueH: pd.h,        // full size, applied on correct placement
+        w: handW, h: handH, placed:false, container:'tray'
       };
       state.pieces.push(pieceObj);
       attachDrag(pieceObj);
@@ -565,18 +577,22 @@
       document.addEventListener('pointercancel', onPointerUp);
     });
 
-    function finalizeInto(parent, left, top){
+    function finalizeInto(parent, left, top, growToTrue){
       el.classList.remove('in-tray');
       el.style.position = 'absolute';
       el.style.transform = 'none';
       el.style.left = left+'px';
       el.style.top = top+'px';
+      if(growToTrue){
+        el.style.width = piece.trueW+'px';
+        el.style.height = piece.trueH+'px';
+      }
       parent.appendChild(el);
     }
 
     // Instant placement (used for free drops that don't need a snap animation)
     function settleInto(parent, left, top){
-      finalizeInto(parent, left, top);
+      finalizeInto(parent, left, top, false);
     }
 
     // Sends the piece back into the tray's normal horizontal flow (no
@@ -586,6 +602,8 @@
       el.style.left = '';
       el.style.top = '';
       el.style.transform = 'none';
+      el.style.width = piece.w+'px';
+      el.style.height = piece.h+'px';
       el.classList.add('in-tray');
       trayInnerEl.appendChild(el);
     }
@@ -593,6 +611,10 @@
     // Animated placement: slides from wherever the finger let go into the
     // exact correct slot, using the Web Animations API on transform so it
     // stays smooth regardless of the position:fixed -> absolute switch.
+    // The piece also grows from its "hand size" to its true board size,
+    // right as it locks in — a deliberate, satisfying snap rather than a
+    // jarring resize on pickup (which is why it stays hand-size the whole
+    // time it's just being carried around).
     function snapAnimateInto(parent, left, top){
       const parentRect = parent.getBoundingClientRect();
       const finalX = parentRect.left + left;
@@ -601,7 +623,12 @@
         [{transform: el.style.transform}, {transform:`translate3d(${finalX}px, ${finalY}px, 0)`}],
         {duration:170, easing:'cubic-bezier(.2,.85,.3,1.15)'}
       );
-      anim.onfinish = () => finalizeInto(parent, left, top);
+      // width/height grow via the CSS transition already defined on .piece
+      requestAnimationFrame(()=>{
+        el.style.width = piece.trueW+'px';
+        el.style.height = piece.trueH+'px';
+      });
+      anim.onfinish = () => finalizeInto(parent, left, top, true);
     }
 
     function endDrag(e){

@@ -189,16 +189,17 @@
   /* While playing, the whole screen becomes a fixed, non-scrolling layout:
      compact header, board filling the remaining space, tray pinned as a
      horizontal strip at the bottom. This removes the need to scroll the
-     page up/down between picking a piece and dropping it. */
+     page up/down between picking a piece and dropping it. If the fit
+     calculation is ever slightly off (unusual screen size/zoom), the page
+     can still scroll a little rather than trapping the tray off-screen. */
   html, body{height:100%;}
-  body.playing{overflow:hidden;}
+  body.playing{overflow-y:auto;overflow-x:hidden;}
   body.playing .wrap{
-    height:100dvh;
-    height:100vh;
+    min-height:100vh;
+    min-height:100dvh;
     display:flex;
     flex-direction:column;
     padding:8px;
-    overflow:hidden;
   }
   body.playing .cartouche{flex:0 0 auto;margin-bottom:6px;}
   body.playing .cartouche .title-cell,
@@ -256,7 +257,7 @@
     filter:drop-shadow(0 2px 4px rgba(0,0,0,0.55));
     z-index:2;
     will-change:transform;
-    transition:filter .12s ease;
+    transition:filter .12s ease, width .18s ease, height .18s ease;
   }
   .piece.in-tray{position:relative;flex:0 0 auto;}
   .piece.dragging{
@@ -283,7 +284,7 @@
     padding:8px 8px 10px;
   }
   body.playing #tray{
-    flex:0 0 auto;
+    flex:0 0 118px;
     margin-top:6px;
   }
   #tray h2{
