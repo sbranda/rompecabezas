@@ -1638,6 +1638,8 @@
     document.getElementById('timeUpOverlay').classList.add('show');
   }
 
+  let lastResultStatsLine = '';
+
   function onWin(){
     stopTimer();
     const timeText = document.getElementById('statTime').textContent;
@@ -1662,8 +1664,84 @@
       isDaily: state.dailyMode,
     });
     clearSavedProgress();
-    document.getElementById('winStats').textContent = `${state.sourceLabel} · ${state.totalPieces} piezas · tiempo ${timeText}${dailyExtra}`;
+    const statsLine = `${state.sourceLabel} · ${state.totalPieces} piezas · tiempo ${timeText}${dailyExtra}`;
+    document.getElementById('winStats').textContent = statsLine;
+    lastResultStatsLine = statsLine;
+    document.getElementById('shareStatus').textContent = '';
     document.getElementById('winOverlay').classList.add('show');
+  }
+
+  // ---------------- Share the finished puzzle as an image ----------------
+  function buildResultCanvas(){
+    const src = state.srcCanvas;
+    const headerH = Math.round(src.width * 0.14);
+    const canvas = document.createElement('canvas');
+    canvas.width = src.width;
+    canvas.height = src.height + headerH;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#10161F';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Title
+    ctx.fillStyle = '#E4C158';
+    ctx.textAlign = 'center';
+    ctx.font = `bold ${Math.round(headerH*0.34)}px Georgia, serif`;
+    ctx.fillText('¡Rompecabezas completo!', canvas.width/2, headerH*0.46);
+
+    // Stats line
+    ctx.fillStyle = '#EDE6D6';
+    ctx.font = `${Math.round(headerH*0.20)}px Georgia, serif`;
+    ctx.fillText(lastResultStatsLine, canvas.width/2, headerH*0.78);
+
+    ctx.drawImage(src, 0, headerH);
+
+    // thin brass border around the finished picture for a "frame" feel
+    ctx.strokeStyle = '#C9A227';
+    ctx.lineWidth = Math.max(2, src.width*0.004);
+    ctx.strokeRect(0, headerH, src.width, src.height);
+
+    return canvas;
+  }
+
+  function shareResult(){
+    const statusEl = document.getElementById('shareStatus');
+    const canvas = buildResultCanvas();
+
+    canvas.toBlob(async (blob)=>{
+      if(!blob){
+        statusEl.textContent = 'No se pudo generar la imagen.';
+        return;
+      }
+      const file = new File([blob], 'rompecabezas.png', {type:'image/png'});
+
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{
+          await navigator.share({
+            files: [file],
+            title: 'Taller de Rompecabezas',
+            text: lastResultStatsLine,
+          });
+          statusEl.textContent = '';
+        }catch(err){
+          // AbortError just means the person closed the share sheet — not a failure
+          if(err && err.name !== 'AbortError'){
+            statusEl.textContent = 'No se pudo compartir. Probá descargar la imagen.';
+          }
+        }
+      } else {
+        // Desktop / unsupported browsers: fall back to a plain download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'rompecabezas.png';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = 'Imagen descargada.';
+      }
+    }, 'image/png');
   }
 
   // ---------------- Step indicator ----------------
@@ -1752,6 +1830,8 @@
   document.getElementById('shuffleBtn').addEventListener('click', ()=>{
     generatePuzzle();
   });
+
+  document.getElementById('shareResultBtn').addEventListener('click', shareResult);
 
   document.getElementById('playAgainBtn').addEventListener('click', ()=>{
     document.getElementById('winOverlay').classList.remove('show');
