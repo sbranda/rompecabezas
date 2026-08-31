@@ -50,6 +50,15 @@
       </div>
     </div>
 
+    <div class="daily-card">
+      <h2>🗓️ Desafío diario</h2>
+      <span class="hint">Mismo rompecabezas para todos hoy — Torre Eiffel, dificultad Difícil, sin rotación. Se repite cada día.</span>
+      <div class="row" style="margin-top:10px; margin-bottom:0;">
+        <button class="btn" id="dailyBtn">Jugar el desafío de hoy</button>
+      </div>
+      <div class="daily-stats" id="dailyStats"></div>
+    </div>
+
     <h2>01 · Elegí la imagen</h2>
     <div class="row">
       <span class="field-label">Modelo incluido</span>
@@ -74,6 +83,11 @@
     <div class="row">
       <div class="chip" id="rotationToggle">🔄 Piezas rotadas (extra difícil)</div>
       <span class="hint">Algunas piezas empiezan giradas. Tocalas (sin arrastrar) para rotarlas 90° antes de encajarlas.</span>
+    </div>
+
+    <div class="row">
+      <div class="chip" id="timeAttackToggle">⏱️ Contrarreloj</div>
+      <span class="hint" id="timeAttackHint">Tenés un tiempo límite para terminar según la cantidad de piezas. Si se acaba, perdés esa partida.</span>
     </div>
 
     <div class="row" style="margin-top:6px;">
@@ -103,10 +117,21 @@
 
 </div>
 
-<div id="winOverlay">
+<div id="winOverlay" class="overlay">
   <h2>Rompecabezas completo</h2>
   <p id="winStats"></p>
-  <button class="btn" id="playAgainBtn">Armar otro</button>
+  <div class="overlay-actions">
+    <button class="btn" id="playAgainBtn">Armar otro</button>
+  </div>
+</div>
+
+<div id="timeUpOverlay" class="overlay lose">
+  <h2>⏰ Se acabó el tiempo</h2>
+  <p id="timeUpStats"></p>
+  <div class="overlay-actions">
+    <button class="btn" id="retryTimeAttackBtn">Intentar de nuevo</button>
+    <button class="btn secondary" id="timeUpChangeBtn">Cambiar opciones</button>
+  </div>
 </div>
 
 <canvas id="hiddenCanvas" style="display:none;"></canvas>

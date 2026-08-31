@@ -16,7 +16,38 @@
     rotationEnabled: false,
     sourceIsBuiltin: false,
     rows: 0, cols: 0, horiz: null, vert: null,
+    timeAttackEnabled: false,
+    timeLimitSec: 0,
+    timeUp: false,
+    dailyMode: false,
+    dailyDate: null,
+    dailyRng: null,
   };
+
+  // ---------------- Seeded RNG (for the daily challenge) ----------------
+  // mulberry32: small, fast, deterministic PRNG. Same seed -> same sequence
+  // -> same puzzle cut/shuffle/etc for everyone playing on the same date.
+  function mulberry32(seed){
+    let a = seed >>> 0;
+    return function(){
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function hashStringToSeed(str){
+    let h = 2166136261;
+    for(let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+  function todayStr(){
+    const d = new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
 
   const DIFFICULTIES = [
     {key:'facil',  label:'Fácil',    rows:3,  cols:4},
@@ -297,19 +328,27 @@
     rotationToggleEl.classList.toggle('active', state.rotationEnabled);
   });
 
+  // ---------------- UI: time attack toggle ----------------
+  const timeAttackToggleEl = document.getElementById('timeAttackToggle');
+  timeAttackToggleEl.addEventListener('click', ()=>{
+    state.timeAttackEnabled = !state.timeAttackEnabled;
+    timeAttackToggleEl.classList.toggle('active', state.timeAttackEnabled);
+  });
+
   // ---------------- Jigsaw geometry ----------------
   // edge sign convention: +1 = tab pointing outward (away from piece a's own body, into neighbor)
   //                        -1 = blank / indentation
-  function buildEdgeMatrices(rows, cols){
+  function buildEdgeMatrices(rows, cols, rand){
+    rand = rand || Math.random;
     const horiz = []; // horiz[r][c] : edge between (r,c) and (r,c+1), c in [0, cols-2]
     for(let r=0;r<rows;r++){
       horiz.push([]);
-      for(let c=0;c<cols-1;c++) horiz[r].push(Math.random()<0.5?1:-1);
+      for(let c=0;c<cols-1;c++) horiz[r].push(rand()<0.5?1:-1);
     }
     const vert = []; // vert[r][c] : edge between (r,c) and (r+1,c), r in [0, rows-2]
     for(let r=0;r<rows-1;r++){
       const row=[];
-      for(let c=0;c<cols;c++) row.push(Math.random()<0.5?1:-1);
+      for(let c=0;c<cols;c++) row.push(rand()<0.5?1:-1);
       vert.push(row);
     }
     return {horiz, vert};
@@ -444,6 +483,10 @@
         elapsedMs: Date.now() - state.timerStart,
         placedCount: state.placedCount,
         totalPieces: state.totalPieces,
+        timeAttackEnabled: state.timeAttackEnabled,
+        timeLimitSec: state.timeLimitSec,
+        isDaily: state.dailyMode,
+        dailyDate: state.dailyDate,
         pieces: state.pieces.map(p => ({r:p.r, c:p.c, rotation:p.rotation, placed:p.placed})),
       };
       localStorage.setItem(PROGRESS_KEY, JSON.stringify(payload));
@@ -467,6 +510,47 @@
 
   function clearSavedProgress(){
     try{ localStorage.removeItem(PROGRESS_KEY); }catch(err){}
+  }
+
+  // ---------------- Daily challenge: best time + streak (localStorage) ----------------
+  const DAILY_KEY = 'rompecabezas:daily';
+
+  function loadDailyData(){
+    try{
+      const raw = localStorage.getItem(DAILY_KEY);
+      return raw ? JSON.parse(raw) : {streak:0, lastDate:null, best:{}};
+    }catch(err){
+      return {streak:0, lastDate:null, best:{}};
+    }
+  }
+
+  function yesterdayStr(){
+    const d = new Date();
+    d.setDate(d.getDate()-1);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+
+  function recordDailyCompletion(elapsedSec){
+    try{
+      const data = loadDailyData();
+      const today = todayStr();
+      if(data.best[today] === undefined || elapsedSec < data.best[today]){
+        data.best[today] = elapsedSec;
+      }
+      if(data.lastDate === today){
+        // already completed today — streak doesn't change on a replay
+      } else if(data.lastDate === yesterdayStr()){
+        data.streak = (data.streak||0) + 1;
+        data.lastDate = today;
+      } else {
+        data.streak = 1;
+        data.lastDate = today;
+      }
+      localStorage.setItem(DAILY_KEY, JSON.stringify(data));
+      return {streak: data.streak, bestToday: data.best[today]};
+    }catch(err){
+      return null;
+    }
   }
 
   // ---------------- Hint: double-tap an empty slot to find its piece ----------------
@@ -518,6 +602,13 @@
     const src = state.sourceImg;
     const aspect = src.height / src.width;
 
+    // Daily challenge uses a seeded RNG so the cut pattern, initial
+    // rotations and shuffle are identical for everyone on the same date.
+    // Resuming a saved puzzle needs no randomness at all (every piece's
+    // exact state is already known), so it just uses Math.random for the
+    // tray's cosmetic ordering.
+    const rand = (!resumeData && state.dailyMode) ? state.dailyRng : Math.random;
+
     // Fit the board fully inside whatever space boardWrap actually has
     // (both width AND height), so the whole puzzle is visible without
     // needing to scroll the board itself while playing.
@@ -550,7 +641,7 @@
 
     const {horiz, vert} = resumeData
       ? {horiz: resumeData.horiz, vert: resumeData.vert}
-      : buildEdgeMatrices(rows, cols);
+      : buildEdgeMatrices(rows, cols, rand);
     state.horiz = horiz; state.vert = vert; // kept for saving/resuming progress
     state.rows = rows; state.cols = cols;
 
@@ -598,7 +689,7 @@
         const saved = resumeData ? savedByRC.get(r+','+c) : null;
         const rotation = saved
           ? saved.rotation
-          : (state.rotationEnabled ? [0,90,180,270][Math.floor(Math.random()*4)] : 0);
+          : (state.rotationEnabled ? [0,90,180,270][Math.floor(rand()*4)] : 0);
 
         const pc = document.createElement('canvas');
         paintPieceCanvas(pc, edges, pieceW, pieceH, tabSize, srcCanvas, sx, sy, rotation);
@@ -616,7 +707,7 @@
     // shuffle order for tray placement (only matters for not-yet-placed pieces)
     const order = piecesData.map((_,i)=>i);
     for(let i=order.length-1;i>0;i--){
-      const j = Math.floor(Math.random()*(i+1));
+      const j = Math.floor(rand()*(i+1));
       [order[i],order[j]] = [order[j],order[i]];
     }
 
@@ -660,6 +751,16 @@
 
     state.totalPieces = piecesData.length;
     state.placedCount = placedCount;
+    state.timeUp = false;
+
+    if(resumeData){
+      state.timeAttackEnabled = !!resumeData.timeAttackEnabled;
+      state.timeLimitSec = resumeData.timeLimitSec || 0;
+    } else if(state.timeAttackEnabled){
+      const perPiece = state.rotationEnabled ? 4.2 : 3.0;
+      state.timeLimitSec = Math.max(45, Math.round(state.totalPieces * perPiece / 5) * 5);
+    }
+
     updateStats();
     startTimer(resumeData ? resumeData.elapsedMs : 0);
   }
@@ -803,7 +904,7 @@
     }
 
     el.addEventListener('pointerdown', (e)=>{
-      if(piece.placed) return;
+      if(piece.placed || state.timeUp) return;
       activePointerId = e.pointerId;
       startX = e.clientX; startY = e.clientY;
       lastX = e.clientX; lastY = e.clientY;
@@ -998,11 +1099,27 @@
   function startTimer(initialElapsedMs){
     state.timerStart = Date.now() - (initialElapsedMs || 0);
     stopTimer(true);
+    const timeEl = document.getElementById('statTime');
     state.timerInterval = setInterval(()=>{
-      const s = Math.floor((Date.now()-state.timerStart)/1000);
-      const mm = String(Math.floor(s/60)).padStart(2,'0');
-      const ss = String(s%60).padStart(2,'0');
-      document.getElementById('statTime').textContent = `${mm}:${ss}`;
+      const elapsedS = Math.floor((Date.now()-state.timerStart)/1000);
+
+      if(state.timeAttackEnabled){
+        const remaining = state.timeLimitSec - elapsedS;
+        if(remaining <= 0){
+          timeEl.textContent = '00:00';
+          timeEl.classList.remove('urgent');
+          onTimeUp();
+          return;
+        }
+        const mm = String(Math.floor(remaining/60)).padStart(2,'0');
+        const ss = String(remaining%60).padStart(2,'0');
+        timeEl.textContent = `${mm}:${ss}`;
+        timeEl.classList.toggle('urgent', remaining <= 10);
+      } else {
+        const mm = String(Math.floor(elapsedS/60)).padStart(2,'0');
+        const ss = String(elapsedS%60).padStart(2,'0');
+        timeEl.textContent = `${mm}:${ss}`;
+      }
     }, 500);
   }
   function stopTimer(silent){
@@ -1012,11 +1129,30 @@
     }
   }
 
+  function onTimeUp(){
+    stopTimer();
+    state.timeUp = true;
+    clearSavedProgress();
+    document.getElementById('timeUpStats').textContent =
+      `${state.sourceLabel} · ${state.placedCount}/${state.totalPieces} piezas colocadas`;
+    document.getElementById('timeUpOverlay').classList.add('show');
+  }
+
   function onWin(){
     stopTimer();
-    clearSavedProgress();
     const timeText = document.getElementById('statTime').textContent;
-    document.getElementById('winStats').textContent = `${state.sourceLabel} · ${state.totalPieces} piezas · tiempo ${timeText}`;
+    let dailyExtra = '';
+    if(state.dailyMode){
+      const elapsedSec = Math.floor((Date.now()-state.timerStart)/1000);
+      const result = recordDailyCompletion(elapsedSec);
+      if(result){
+        const bm = String(Math.floor(result.bestToday/60)).padStart(2,'0');
+        const bs = String(result.bestToday%60).padStart(2,'0');
+        dailyExtra = ` · racha: ${result.streak} día${result.streak===1?'':'s'} · mejor de hoy: ${bm}:${bs}`;
+      }
+    }
+    clearSavedProgress();
+    document.getElementById('winStats').textContent = `${state.sourceLabel} · ${state.totalPieces} piezas · tiempo ${timeText}${dailyExtra}`;
     document.getElementById('winOverlay').classList.add('show');
   }
 
@@ -1041,6 +1177,7 @@
   }
 
   document.getElementById('generateBtn').addEventListener('click', ()=>{
+    state.dailyMode = false;
     enterPlayMode();
   });
 
@@ -1068,6 +1205,10 @@
     document.getElementById('resumeBtn').addEventListener('click', ()=>{
       state.rotationEnabled = !!saved.rotationEnabled;
       rotationToggleEl.classList.toggle('active', state.rotationEnabled);
+      state.timeAttackEnabled = !!saved.timeAttackEnabled;
+      timeAttackToggleEl.classList.toggle('active', state.timeAttackEnabled);
+      state.dailyMode = !!saved.isDaily;
+      state.dailyDate = saved.dailyDate || null;
       state.sourceLabel = saved.label || '';
 
       const startResume = ()=>{
@@ -1105,6 +1246,52 @@
   document.getElementById('playAgainBtn').addEventListener('click', ()=>{
     document.getElementById('winOverlay').classList.remove('show');
     generatePuzzle();
+  });
+
+  document.getElementById('retryTimeAttackBtn').addEventListener('click', ()=>{
+    document.getElementById('timeUpOverlay').classList.remove('show');
+    generatePuzzle();
+  });
+
+  document.getElementById('timeUpChangeBtn').addEventListener('click', ()=>{
+    document.getElementById('timeUpOverlay').classList.remove('show');
+    document.getElementById('board-area').classList.remove('visible');
+    document.getElementById('setupPanel').classList.remove('hide');
+    document.body.classList.remove('playing');
+    setStep(1);
+  });
+
+  // ---------------- Daily challenge ----------------
+  const DAILY_DIFFICULTY = {rows:6, cols:7, label:'Difícil'}; // fixed, same for everyone
+
+  function refreshDailyStats(){
+    const data = loadDailyData();
+    const today = todayStr();
+    const el = document.getElementById('dailyStats');
+    const playedToday = data.best[today] !== undefined;
+    const parts = [];
+    if(data.streak) parts.push(`Racha: <b>${data.streak} día${data.streak===1?'':'s'}</b>`);
+    if(playedToday){
+      const m = String(Math.floor(data.best[today]/60)).padStart(2,'0');
+      const s = String(data.best[today]%60).padStart(2,'0');
+      parts.push(`Ya completaste el de hoy — mejor tiempo: <b>${m}:${s}</b>`);
+    }
+    el.innerHTML = parts.length ? parts.join(' · ') : 'Todavía no jugaste el desafío diario.';
+  }
+  refreshDailyStats();
+
+  document.getElementById('dailyBtn').addEventListener('click', ()=>{
+    const dateStr = todayStr();
+    state.dailyMode = true;
+    state.dailyDate = dateStr;
+    state.dailyRng = mulberry32(hashStringToSeed('rompecabezas-diario-'+dateStr));
+    state.rotationEnabled = false;
+    rotationToggleEl.classList.remove('active');
+    state.timeAttackEnabled = false;
+    timeAttackToggleEl.classList.remove('active');
+    state.difficulty = DAILY_DIFFICULTY;
+    setSourceFromDraw(drawEiffelTower, 'Torre Eiffel — Desafío diario');
+    enterPlayMode();
   });
 
   let refShown=false;
