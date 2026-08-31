@@ -1517,7 +1517,7 @@
           el.style.height = piece.trueH+'px';
           state.placedCount++;
           updateStats();
-          vibrateFeedback(15);
+          vibrateFeedback(15); playClickSound();
           if(state.placedCount === state.totalPieces){
             setTimeout(onWin, 220);
           }
@@ -1572,7 +1572,7 @@
         updateStats();
         snapAnimateInto(boardEl, piece.correctX, piece.correctY);
         setTimeout(()=>pulse(el), 170);
-        vibrateFeedback(15);
+        vibrateFeedback(15); playClickSound();
         if(state.placedCount === state.totalPieces){
           setTimeout(onWin, 220);
         }
@@ -1621,6 +1621,68 @@
     }catch(err){
       // never let a missing/blocked vibration API interrupt gameplay
     }
+  }
+
+  // ---------------- Sound (synthesized, no audio files needed) ----------------
+  // Preference persists across sessions, separate from any single puzzle's state.
+  const SOUND_KEY = 'rompecabezas:sound';
+  try{
+    state.soundEnabled = localStorage.getItem(SOUND_KEY) !== '0'; // on by default
+  }catch(err){
+    state.soundEnabled = true;
+  }
+
+  let audioCtx = null;
+  function getAudioCtx(){
+    // Browsers require a user gesture before audio can play — every call
+    // site here only ever runs in response to a tap/click, so creating (and
+    // resuming) it lazily on first use is always safe.
+    if(!audioCtx){
+      try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(err){ return null; }
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+    return audioCtx;
+  }
+
+  function playClickSound(){
+    if(!state.soundEnabled) return;
+    const ctx = getAudioCtx();
+    if(!ctx) return;
+    try{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(420, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.16, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    }catch(err){ /* audio is a nice-to-have, never worth breaking play for */ }
+  }
+
+  function playWinChime(){
+    if(!state.soundEnabled) return;
+    const ctx = getAudioCtx();
+    if(!ctx) return;
+    try{
+      const now = ctx.currentTime;
+      [523.25, 659.25, 783.99].forEach((freq, i)=>{ // a quick C-E-G arpeggio
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        const t = now + i*0.1;
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.exponentialRampToValueAtTime(0.18, t+0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t+0.3);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t+0.32);
+      });
+    }catch(err){ /* ditto */ }
   }
 
   // ---------------- Stats / timer ----------------
@@ -1688,7 +1750,7 @@
 
   function onWin(){
     stopTimer();
-    vibrateFeedback([20,60,20,60,40]);
+    vibrateFeedback([20,60,20,60,40]); playWinChime();
     const elapsedSec = Math.floor((Date.now()-state.timerStart)/1000);
     const timeText = formatMMSS(elapsedSec); // always the real time here — the
     // point of hiding it during play is to avoid a stressful ticking clock,
@@ -1918,6 +1980,20 @@
     el.innerHTML = parts.length ? parts.join(' · ') : 'Todavía no jugaste el desafío diario.';
   }
   refreshDailyStats();
+
+  // ---------------- Sound toggle button ----------------
+  const soundToggleBtn = document.getElementById('soundToggleBtn');
+  function updateSoundBtn(){
+    soundToggleBtn.textContent = state.soundEnabled ? '🔊' : '🔇';
+    soundToggleBtn.classList.toggle('muted', !state.soundEnabled);
+  }
+  updateSoundBtn();
+  soundToggleBtn.addEventListener('click', ()=>{
+    state.soundEnabled = !state.soundEnabled;
+    try{ localStorage.setItem(SOUND_KEY, state.soundEnabled ? '1' : '0'); }catch(err){}
+    updateSoundBtn();
+    if(state.soundEnabled) playClickSound(); // quick confirmation blip
+  });
 
   // ---------------- History overlay ----------------
   document.getElementById('openHistoryBtn').addEventListener('click', ()=>{
