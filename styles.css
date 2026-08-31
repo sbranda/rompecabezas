@@ -424,6 +424,34 @@
     margin-left:5px;
   }
 
+  .best-times-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12px;
+  }
+  .best-times-table th{
+    text-align:left;
+    font-family:'Rajdhani',sans-serif;
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--paper-dim);
+    padding:6px 8px;
+    border-bottom:1px solid var(--steel-dim);
+  }
+  .best-times-table td{
+    padding:8px;
+    border-bottom:1px solid var(--steel-dim);
+    color:var(--paper);
+  }
+  .best-times-table tr:last-child td{border-bottom:none;}
+  .best-times-table .bt-time{
+    font-family:'IBM Plex Mono',monospace;
+    color:var(--brass-bright);
+    font-size:14px;
+  }
+  .best-times-table .bt-empty{color:var(--paper-dim);font-style:italic;}
+
   @media (max-width:600px){
     .cartouche{flex-direction:column;}
     .title-cell{border-right:none;border-bottom:1px solid var(--steel-dim);}

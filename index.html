@@ -56,6 +56,7 @@
       <div class="row" style="margin-top:10px; margin-bottom:0;">
         <button class="btn" id="dailyBtn">Jugar el desafío de hoy</button>
         <button class="btn secondary" id="openHistoryBtn">📜 Ver historial</button>
+        <button class="btn secondary" id="openBestTimesBtn">🏆 Mejores tiempos</button>
       </div>
       <div class="daily-stats" id="dailyStats"></div>
     </div>
@@ -153,6 +154,17 @@
   <div class="overlay-actions">
     <button class="btn" id="closeHistoryBtn">Cerrar</button>
     <button class="btn secondary" id="clearHistoryBtn">Borrar historial</button>
+  </div>
+</div>
+
+<div id="bestTimesOverlay" class="overlay">
+  <h2>🏆 Mejores tiempos</h2>
+  <div class="history-panel">
+    <span class="hint" style="display:block; text-align:center; margin-bottom:12px;">Solo en este dispositivo — se calculan a partir de tu historial.</span>
+    <table class="best-times-table" id="bestTimesTable"></table>
+  </div>
+  <div class="overlay-actions">
+    <button class="btn" id="closeBestTimesBtn">Cerrar</button>
   </div>
 </div>
 

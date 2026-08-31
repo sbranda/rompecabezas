@@ -1013,6 +1013,46 @@
     return d.innerHTML;
   }
 
+  // ---------------- Best times per difficulty (derived from history) ----------------
+  function renderBestTimes(){
+    const history = loadHistory();
+    const table = document.getElementById('bestTimesTable');
+
+    const rowsHtml = DIFFICULTIES.map(diff=>{
+      const matches = history.filter(e => e.rows===diff.rows && e.cols===diff.cols);
+      if(!matches.length){
+        return `<tr>
+          <td>${diff.label}</td>
+          <td>${diff.rows*diff.cols}</td>
+          <td class="bt-empty" colspan="2">Todavía no completado</td>
+        </tr>`;
+      }
+      const best = matches.reduce((a,b)=> b.timeSec < a.timeSec ? b : a);
+      const d = new Date(best.completedAt);
+      const dateStr = d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'2-digit'});
+      const badges = [
+        best.rotationEnabled ? '<span class="hi-badge">rotación</span>' : '',
+        best.timeAttack ? '<span class="hi-badge">contrarreloj</span>' : '',
+      ].join('');
+      return `<tr>
+        <td>${diff.label}</td>
+        <td>${diff.rows*diff.cols}</td>
+        <td class="bt-time">${formatMMSS(best.timeSec)}${badges}</td>
+        <td>${dateStr}</td>
+      </tr>`;
+    }).join('');
+
+    table.innerHTML = `
+      <tr>
+        <th>Dificultad</th>
+        <th>Piezas</th>
+        <th>Mejor tiempo</th>
+        <th>Fecha</th>
+      </tr>
+      ${rowsHtml}
+    `;
+  }
+
   // ---------------- Hint: double-tap an empty slot to find its piece ----------------
   function attachSlotDoubleTap(slot){
     let lastTap = 0;
@@ -1761,6 +1801,15 @@
   document.getElementById('clearHistoryBtn').addEventListener('click', ()=>{
     try{ localStorage.removeItem(HISTORY_KEY); }catch(err){}
     renderHistory();
+  });
+
+  // ---------------- Best-times overlay ----------------
+  document.getElementById('openBestTimesBtn').addEventListener('click', ()=>{
+    renderBestTimes();
+    document.getElementById('bestTimesOverlay').classList.add('show');
+  });
+  document.getElementById('closeBestTimesBtn').addEventListener('click', ()=>{
+    document.getElementById('bestTimesOverlay').classList.remove('show');
   });
 
   document.getElementById('dailyBtn').addEventListener('click', ()=>{
