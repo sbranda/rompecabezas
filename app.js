@@ -650,6 +650,41 @@
     img.src = url;
   });
 
+  // ---------------- AI image generation (Pollinations.ai, no API key) ----------------
+  document.getElementById('generateAiBtn').addEventListener('click', ()=>{
+    const prompt = document.getElementById('aiPromptInput').value.trim();
+    const statusEl = document.getElementById('aiStatus');
+    const btn = document.getElementById('generateAiBtn');
+    if(!prompt){
+      statusEl.textContent = 'Escribí un tema primero (ej: "un castillo entre nubes").';
+      return;
+    }
+
+    btn.disabled = true;
+    statusEl.textContent = 'Generando imagen con IA… puede tardar unos segundos.';
+
+    // Pollinations.ai is a free, keyless image-generation service — not an
+    // Anthropic product. It's used here purely because this app is a static
+    // page with no backend of its own to call a proper API from.
+    const seed = Math.floor(Math.random()*1e9);
+    const encoded = encodeURIComponent(prompt);
+    const genUrl = `https://image.pollinations.ai/prompt/${encoded}?width=900&height=1150&nologo=true&seed=${seed}`;
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = ()=>{
+      btn.disabled = false;
+      document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('active'));
+      setSourceFromImageElement(img, `IA: "${prompt}"`);
+      statusEl.textContent = 'Usa un servicio gratuito externo (Pollinations.ai), no de Anthropic. Necesita internet y puede tardar unos segundos.';
+    };
+    img.onerror = ()=>{
+      btn.disabled = false;
+      statusEl.textContent = 'No se pudo generar la imagen (¿hay internet?). Probá de nuevo en un momento.';
+    };
+    img.src = genUrl;
+  });
+
   // ---------------- UI: difficulty chips ----------------
   const difficultyRow = document.getElementById('difficultyRow');
   DIFFICULTIES.forEach((d,i)=>{

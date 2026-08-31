@@ -77,6 +77,15 @@
       <span class="hint">Si una imagen de internet no carga, suele ser porque el sitio bloquea su uso en otras páginas (CORS). En ese caso subila como archivo.</span>
     </div>
 
+    <div class="row">
+      <span class="field-label">✨ Generar con IA</span>
+      <input type="text" id="aiPromptInput" placeholder="Ej: un dragón dormido sobre un tesoro">
+      <button class="btn secondary" id="generateAiBtn">Generar</button>
+    </div>
+    <div class="row">
+      <span class="hint" id="aiStatus">Usa un servicio gratuito externo (Pollinations.ai), no de Anthropic. Necesita internet y puede tardar unos segundos.</span>
+    </div>
+
     <h2 style="margin-top:16px;">02 · Elegí la dificultad</h2>
     <div class="row" id="difficultyRow"></div>
 
