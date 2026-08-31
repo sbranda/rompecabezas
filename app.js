@@ -1333,12 +1333,21 @@
     function beginLift(){
       mode = 'dragging';
       el.classList.add('dragging');
-      // offsetX/offsetY were already computed at pointerdown from startRect
-      // and must NOT be recalculated here — this can run on a later
-      // pointermove (once we've decided "lift, not scroll"), and redoing the
-      // math against that later, already-moved pointer position would
-      // silently shift the grab point, throwing off every drop-position
-      // check downstream (including the exact-slot snap test).
+      // offsetX/offsetY were computed at pointerdown from startRect (the
+      // piece's resting "hand size"). Growing the piece to its true size
+      // the moment it's lifted — rather than only on a correct snap — means
+      // it's shown at roughly the same scale as the board slot it needs to
+      // land in, instead of looking comically tiny next to a huge slot
+      // (which is exactly what made low-piece-count puzzles like the
+      // 12-piece one feel like pieces "didn't fit"). Since the box grows,
+      // the grab offset must scale up by the same factor so the piece
+      // doesn't jump under the finger.
+      const growScale = piece.trueW / startRect.width;
+      offsetX *= growScale;
+      offsetY *= growScale;
+      el.style.width = piece.trueW+'px';
+      el.style.height = piece.trueH+'px';
+
       el.style.position = 'fixed';
       el.style.left = '0px';
       el.style.top = '0px';
@@ -1496,10 +1505,14 @@
       // top-left keeps this simple and, crucially, keeps a piece that's
       // sitting exactly on its correct slot exactly there across every tap,
       // which is what the "does this complete the placement" check below
-      // depends on.
-      const hs = handSizeFor(el);
-      el.style.width = hs.w+'px';
-      el.style.height = hs.h+'px';
+      // depends on. Only tray pieces get shrunk to hand size here — a piece
+      // already sitting on the board (even mis-rotated) stays at true size,
+      // since it was already grown to true size the moment it was lifted.
+      if(piece.container === 'tray'){
+        const hs = handSizeFor(el);
+        el.style.width = hs.w+'px';
+        el.style.height = hs.h+'px';
+      }
 
       pulse(el);
 
