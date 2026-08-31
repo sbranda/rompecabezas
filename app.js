@@ -1517,6 +1517,7 @@
           el.style.height = piece.trueH+'px';
           state.placedCount++;
           updateStats();
+          vibrateFeedback(15);
           if(state.placedCount === state.totalPieces){
             setTimeout(onWin, 220);
           }
@@ -1571,6 +1572,7 @@
         updateStats();
         snapAnimateInto(boardEl, piece.correctX, piece.correctY);
         setTimeout(()=>pulse(el), 170);
+        vibrateFeedback(15);
         if(state.placedCount === state.totalPieces){
           setTimeout(onWin, 220);
         }
@@ -1608,6 +1610,17 @@
       [{transform:'scale(1.08)'},{transform:'scale(1)'}],
       {duration:180, easing:'ease-out'}
     );
+  }
+
+  // Subtle haptic feedback on devices that support the Vibration API
+  // (mostly Android phones — iOS Safari has no navigator.vibrate at all,
+  // and this simply does nothing there, which is the correct fallback).
+  function vibrateFeedback(pattern){
+    try{
+      if(navigator.vibrate) navigator.vibrate(pattern);
+    }catch(err){
+      // never let a missing/blocked vibration API interrupt gameplay
+    }
   }
 
   // ---------------- Stats / timer ----------------
@@ -1675,6 +1688,7 @@
 
   function onWin(){
     stopTimer();
+    vibrateFeedback([20,60,20,60,40]);
     const elapsedSec = Math.floor((Date.now()-state.timerStart)/1000);
     const timeText = formatMMSS(elapsedSec); // always the real time here — the
     // point of hiding it during play is to avoid a stressful ticking clock,
