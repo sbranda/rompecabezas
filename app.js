@@ -941,6 +941,78 @@
     }
   }
 
+  // ---------------- Completed-puzzle history (localStorage) ----------------
+  const HISTORY_KEY = 'rompecabezas:history';
+  const HISTORY_MAX = 200;
+
+  function recordHistoryEntry(entry){
+    try{
+      const raw = localStorage.getItem(HISTORY_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      list.unshift(entry); // most recent first
+      if(list.length > HISTORY_MAX) list.length = HISTORY_MAX;
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+    }catch(err){
+      // history is a nice-to-have; never worth interrupting the win moment for
+    }
+  }
+
+  function loadHistory(){
+    try{
+      const raw = localStorage.getItem(HISTORY_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(err){
+      return [];
+    }
+  }
+
+  function formatMMSS(totalSec){
+    const m = String(Math.floor(totalSec/60)).padStart(2,'0');
+    const s = String(totalSec%60).padStart(2,'0');
+    return `${m}:${s}`;
+  }
+
+  function renderHistory(){
+    const list = loadHistory();
+    const summaryEl = document.getElementById('historySummary');
+    const listEl = document.getElementById('historyList');
+
+    if(!list.length){
+      summaryEl.innerHTML = 'Todavía no completaste ningún rompecabezas.';
+      listEl.innerHTML = '<div class="history-empty">Cuando termines uno, va a aparecer acá.</div>';
+      return;
+    }
+
+    const totalSec = list.reduce((sum,e)=>sum+(e.timeSec||0), 0);
+    const totalH = Math.floor(totalSec/3600);
+    const totalM = Math.floor((totalSec%3600)/60);
+    summaryEl.innerHTML = `<b>${list.length}</b> rompecabezas completados · <b>${totalH}h ${totalM}m</b> jugadas en total`;
+
+    listEl.innerHTML = list.map(e=>{
+      const d = new Date(e.completedAt);
+      const dateStr = d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'2-digit'});
+      const timeOfDay = d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+      const badges = [
+        e.isDaily ? '<span class="hi-badge">diario</span>' : '',
+        e.rotationEnabled ? '<span class="hi-badge">rotación</span>' : '',
+        e.timeAttack ? '<span class="hi-badge">contrarreloj</span>' : '',
+      ].join('');
+      return `<div class="history-item">
+        <div class="hi-main">
+          <span class="hi-label">${escapeHtml(e.label||'Rompecabezas')}</span>
+          <span class="hi-meta">${dateStr} · ${timeOfDay} · ${e.totalPieces} piezas${badges}</span>
+        </div>
+        <div class="hi-time">${formatMMSS(e.timeSec)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
   // ---------------- Hint: double-tap an empty slot to find its piece ----------------
   function attachSlotDoubleTap(slot){
     let lastTap = 0;
@@ -1529,9 +1601,9 @@
   function onWin(){
     stopTimer();
     const timeText = document.getElementById('statTime').textContent;
+    const elapsedSec = Math.floor((Date.now()-state.timerStart)/1000);
     let dailyExtra = '';
     if(state.dailyMode){
-      const elapsedSec = Math.floor((Date.now()-state.timerStart)/1000);
       const result = recordDailyCompletion(elapsedSec);
       if(result){
         const bm = String(Math.floor(result.bestToday/60)).padStart(2,'0');
@@ -1539,6 +1611,16 @@
         dailyExtra = ` · racha: ${result.streak} día${result.streak===1?'':'s'} · mejor de hoy: ${bm}:${bs}`;
       }
     }
+    recordHistoryEntry({
+      completedAt: Date.now(),
+      label: state.sourceLabel,
+      totalPieces: state.totalPieces,
+      rows: state.rows, cols: state.cols,
+      timeSec: elapsedSec,
+      rotationEnabled: state.rotationEnabled,
+      timeAttack: state.timeAttackEnabled,
+      isDaily: state.dailyMode,
+    });
     clearSavedProgress();
     document.getElementById('winStats').textContent = `${state.sourceLabel} · ${state.totalPieces} piezas · tiempo ${timeText}${dailyExtra}`;
     document.getElementById('winOverlay').classList.add('show');
@@ -1667,6 +1749,19 @@
     el.innerHTML = parts.length ? parts.join(' · ') : 'Todavía no jugaste el desafío diario.';
   }
   refreshDailyStats();
+
+  // ---------------- History overlay ----------------
+  document.getElementById('openHistoryBtn').addEventListener('click', ()=>{
+    renderHistory();
+    document.getElementById('historyOverlay').classList.add('show');
+  });
+  document.getElementById('closeHistoryBtn').addEventListener('click', ()=>{
+    document.getElementById('historyOverlay').classList.remove('show');
+  });
+  document.getElementById('clearHistoryBtn').addEventListener('click', ()=>{
+    try{ localStorage.removeItem(HISTORY_KEY); }catch(err){}
+    renderHistory();
+  });
 
   document.getElementById('dailyBtn').addEventListener('click', ()=>{
     const dateStr = todayStr();
