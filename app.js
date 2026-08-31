@@ -19,6 +19,7 @@
     timeAttackEnabled: false,
     timeLimitSec: 0,
     timeUp: false,
+    hideTimer: false,
     dailyMode: false,
     dailyDate: null,
     dailyRng: null,
@@ -713,6 +714,23 @@
   timeAttackToggleEl.addEventListener('click', ()=>{
     state.timeAttackEnabled = !state.timeAttackEnabled;
     timeAttackToggleEl.classList.toggle('active', state.timeAttackEnabled);
+    if(state.timeAttackEnabled){
+      // Contrarreloj needs a visible, ticking countdown — the two modes
+      // are opposites, so turning one on turns the other off.
+      state.hideTimer = false;
+      noTimerToggleEl.classList.remove('active');
+    }
+  });
+
+  // ---------------- UI: relaxed / no-visible-timer toggle ----------------
+  const noTimerToggleEl = document.getElementById('noTimerToggle');
+  noTimerToggleEl.addEventListener('click', ()=>{
+    state.hideTimer = !state.hideTimer;
+    noTimerToggleEl.classList.toggle('active', state.hideTimer);
+    if(state.hideTimer){
+      state.timeAttackEnabled = false;
+      timeAttackToggleEl.classList.remove('active');
+    }
   });
 
   // ---------------- Jigsaw geometry ----------------
@@ -1600,6 +1618,21 @@
     state.timerStart = Date.now() - (initialElapsedMs || 0);
     stopTimer(true);
     const timeEl = document.getElementById('statTime');
+    const timeLabelEl = document.getElementById('statTimeLabel');
+
+    if(state.hideTimer){
+      // We still track state.timerStart internally (so history/best-times
+      // keep working once the puzzle is done) — we just never render a
+      // ticking number during play, which is the whole point for someone
+      // who finds a visible countdown/countup stressful.
+      timeEl.textContent = '🧘';
+      timeEl.classList.remove('urgent');
+      if(timeLabelEl) timeLabelEl.textContent = 'Sin apuro';
+      state.timerInterval = null;
+      return;
+    }
+    if(timeLabelEl) timeLabelEl.textContent = 'Tiempo';
+
     state.timerInterval = setInterval(()=>{
       const elapsedS = Math.floor((Date.now()-state.timerStart)/1000);
 
@@ -1642,8 +1675,10 @@
 
   function onWin(){
     stopTimer();
-    const timeText = document.getElementById('statTime').textContent;
     const elapsedSec = Math.floor((Date.now()-state.timerStart)/1000);
+    const timeText = formatMMSS(elapsedSec); // always the real time here — the
+    // point of hiding it during play is to avoid a stressful ticking clock,
+    // not to hide the result once the puzzle is actually done.
     let dailyExtra = '';
     if(state.dailyMode){
       const result = recordDailyCompletion(elapsedSec);
