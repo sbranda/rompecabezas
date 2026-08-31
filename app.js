@@ -14,6 +14,8 @@
     timerStart: null,
     timerInterval: null,
     rotationEnabled: false,
+    sourceIsBuiltin: false,
+    rows: 0, cols: 0, horiz: null, vert: null,
   };
 
   const DIFFICULTIES = [
@@ -211,6 +213,7 @@
     drawFn(c);
     state.sourceImg = c;
     state.sourceLabel = label;
+    state.sourceIsBuiltin = true;
     document.getElementById('imgStatus').textContent = `Imagen lista: ${label}`;
     document.getElementById('generateBtn').disabled = false;
     setStep(2);
@@ -234,6 +237,7 @@
     }
     state.sourceImg = c;
     state.sourceLabel = label;
+    state.sourceIsBuiltin = false;
     document.getElementById('imgStatus').textContent = `Imagen lista: ${label}`;
     document.getElementById('generateBtn').disabled = false;
     setStep(2);
@@ -419,6 +423,52 @@
     state.placedCount = 0;
   }
 
+  // ---------------- Save / resume progress (localStorage) ----------------
+  // Uses localStorage (not the in-chat "window.storage" API) because this
+  // app is downloaded and self-hosted outside Claude — localStorage is what
+  // actually persists once it's running on the person's own site.
+  const PROGRESS_KEY = 'rompecabezas:progress';
+
+  function saveProgress(){
+    try{
+      if(!state.totalPieces || !state.timerStart) return;
+      const payload = {
+        version: 1,
+        savedAt: Date.now(),
+        label: state.sourceLabel,
+        isBuiltin: state.sourceIsBuiltin,
+        imageDataUrl: state.sourceIsBuiltin ? null : state.sourceImg.toDataURL('image/jpeg', 0.72),
+        rows: state.rows, cols: state.cols,
+        rotationEnabled: state.rotationEnabled,
+        horiz: state.horiz, vert: state.vert,
+        elapsedMs: Date.now() - state.timerStart,
+        placedCount: state.placedCount,
+        totalPieces: state.totalPieces,
+        pieces: state.pieces.map(p => ({r:p.r, c:p.c, rotation:p.rotation, placed:p.placed})),
+      };
+      localStorage.setItem(PROGRESS_KEY, JSON.stringify(payload));
+    }catch(err){
+      // Storage full, disabled, or unavailable (e.g. private browsing) —
+      // saving progress is a nice-to-have, never worth interrupting play for.
+    }
+  }
+
+  function loadSavedProgress(){
+    try{
+      const raw = localStorage.getItem(PROGRESS_KEY);
+      if(!raw) return null;
+      const data = JSON.parse(raw);
+      if(!data || !Array.isArray(data.pieces) || !data.rows || !data.cols) return null;
+      return data;
+    }catch(err){
+      return null;
+    }
+  }
+
+  function clearSavedProgress(){
+    try{ localStorage.removeItem(PROGRESS_KEY); }catch(err){}
+  }
+
   // ---------------- Hint: double-tap an empty slot to find its piece ----------------
   function attachSlotDoubleTap(slot){
     let lastTap = 0;
@@ -458,11 +508,13 @@
     setTimeout(()=>target.el.classList.remove('hint'), 1600);
   }
 
-  function generatePuzzle(){
+  function generatePuzzle(resumeData){
     clearBoard();
     stopTimer();
+    if(!resumeData) clearSavedProgress(); // starting fresh discards any old save
 
-    const rows = state.difficulty.rows, cols = state.difficulty.cols;
+    const rows = resumeData ? resumeData.rows : state.difficulty.rows;
+    const cols = resumeData ? resumeData.cols : state.difficulty.cols;
     const src = state.sourceImg;
     const aspect = src.height / src.width;
 
@@ -496,7 +548,11 @@
     srcCanvas.getContext('2d').drawImage(src, 0,0, boardW, boardH);
     state.srcCanvas = srcCanvas; // kept for repainting pieces later (tap-to-rotate)
 
-    const {horiz, vert} = buildEdgeMatrices(rows, cols);
+    const {horiz, vert} = resumeData
+      ? {horiz: resumeData.horiz, vert: resumeData.vert}
+      : buildEdgeMatrices(rows, cols);
+    state.horiz = horiz; state.vert = vert; // kept for saving/resuming progress
+    state.rows = rows; state.cols = cols;
 
     boardEl.style.width = boardW+'px';
     boardEl.style.height = boardH+'px';
@@ -521,6 +577,12 @@
     const pieceCanvasW = pieceW + pad*2;
     const pieceCanvasH = pieceH + pad*2;
 
+    // Look up a piece's saved state (rotation / placed) when resuming.
+    const savedByRC = new Map();
+    if(resumeData){
+      resumeData.pieces.forEach(p => savedByRC.set(p.r+','+p.c, p));
+    }
+
     const piecesData = [];
 
     for(let r=0;r<rows;r++){
@@ -533,7 +595,10 @@
         };
 
         const sx = c*pieceW - pad, sy = r*pieceH - pad;
-        const rotation = state.rotationEnabled ? [0,90,180,270][Math.floor(Math.random()*4)] : 0;
+        const saved = resumeData ? savedByRC.get(r+','+c) : null;
+        const rotation = saved
+          ? saved.rotation
+          : (state.rotationEnabled ? [0,90,180,270][Math.floor(Math.random()*4)] : 0);
 
         const pc = document.createElement('canvas');
         paintPieceCanvas(pc, edges, pieceW, pieceH, tabSize, srcCanvas, sx, sy, rotation);
@@ -543,45 +608,60 @@
 
         piecesData.push({
           r, c, canvas:pc, correctX, correctY, w:pieceCanvasW, h:pieceCanvasH,
-          edges, sx, sy, rotation,
+          edges, sx, sy, rotation, placed: saved ? saved.placed : false,
         });
       }
     }
 
-    // shuffle order for tray placement
+    // shuffle order for tray placement (only matters for not-yet-placed pieces)
     const order = piecesData.map((_,i)=>i);
     for(let i=order.length-1;i>0;i--){
       const j = Math.floor(Math.random()*(i+1));
       [order[i],order[j]] = [order[j],order[i]];
     }
 
+    let placedCount = 0;
+
     order.forEach((idx)=>{
       const pd = piecesData[idx];
       const el = pd.canvas;              // use the cut canvas directly, no base64 round-trip
-      el.className = 'piece in-tray';
-      const hs = handSizeFor(el);
-      el.style.width = hs.w+'px';
-      el.style.height = hs.h+'px';
-      el.style.transform = 'none';       // rotation is baked into the pixels, not CSS
       el.draggable = false;
-
-      trayInnerEl.appendChild(el);       // flex row lays it out automatically
+      el.style.transform = 'none';       // rotation is baked into the pixels, not CSS
 
       const pieceObj = {
-        el, correctX: pd.correctX, correctY: pd.correctY,
+        el, r: pd.r, c: pd.c, correctX: pd.correctX, correctY: pd.correctY,
         trueW: pd.w, trueH: pd.h,        // full size at rotation 0, applied on correct placement
-        edges: pd.edges, sx: pd.sx, sy: pd.sy,   // needed to repaint at a new rotation on tap
-        placed:false, container:'tray',
+        edges: pd.edges, sx: pd.sx, sy: pd.sy,
+        placed: pd.placed, container: pd.placed ? 'board' : 'tray',
         rotation: pd.rotation,           // 0 = correct orientation; 90/180/270 = needs a flip
       };
+
+      if(pd.placed){
+        el.className = 'piece placed';
+        el.style.position = 'absolute';
+        el.style.left = pd.correctX+'px';
+        el.style.top = pd.correctY+'px';
+        el.style.width = pd.w+'px';
+        el.style.height = pd.h+'px';
+        el.style.cursor = 'default';
+        boardEl.appendChild(el);
+        placedCount++;
+      } else {
+        el.className = 'piece in-tray';
+        const hs = handSizeFor(el);
+        el.style.width = hs.w+'px';
+        el.style.height = hs.h+'px';
+        trayInnerEl.appendChild(el);       // flex row lays it out automatically
+      }
+
       state.pieces.push(pieceObj);
       attachDrag(pieceObj);
     });
 
-
     state.totalPieces = piecesData.length;
+    state.placedCount = placedCount;
     updateStats();
-    startTimer();
+    startTimer(resumeData ? resumeData.elapsedMs : 0);
   }
 
   // ---------------- Drag & drop (pointer events, mouse+touch) ----------------
@@ -823,6 +903,8 @@
           }
         }
       }
+
+      saveProgress();
     }
 
     // Animated placement: slides from wherever the finger let go into the
@@ -896,6 +978,8 @@
           piece.container = 'tray';
         }
       }
+
+      saveProgress();
     }
 
   }
@@ -911,8 +995,8 @@
   function updateStats(){
     document.getElementById('statPieces').textContent = `${state.placedCount}/${state.totalPieces}`;
   }
-  function startTimer(){
-    state.timerStart = Date.now();
+  function startTimer(initialElapsedMs){
+    state.timerStart = Date.now() - (initialElapsedMs || 0);
     stopTimer(true);
     state.timerInterval = setInterval(()=>{
       const s = Math.floor((Date.now()-state.timerStart)/1000);
@@ -930,6 +1014,7 @@
 
   function onWin(){
     stopTimer();
+    clearSavedProgress();
     const timeText = document.getElementById('statTime').textContent;
     document.getElementById('winStats').textContent = `${state.sourceLabel} · ${state.totalPieces} piezas · tiempo ${timeText}`;
     document.getElementById('winOverlay').classList.add('show');
@@ -945,14 +1030,18 @@
   }
 
   // ---------------- Buttons ----------------
-  document.getElementById('generateBtn').addEventListener('click', ()=>{
+  function enterPlayMode(resumeData){
     document.getElementById('setupPanel').classList.add('hide');
     document.getElementById('board-area').classList.add('visible');
     document.body.classList.add('playing');
     setStep(3);
     // wait one frame so boardWrap has its final flex-allocated size
     // before we measure it to fit the board.
-    requestAnimationFrame(()=>requestAnimationFrame(generatePuzzle));
+    requestAnimationFrame(()=>requestAnimationFrame(()=>generatePuzzle(resumeData)));
+  }
+
+  document.getElementById('generateBtn').addEventListener('click', ()=>{
+    enterPlayMode();
   });
 
   document.getElementById('changeImgBtn').addEventListener('click', ()=>{
@@ -962,6 +1051,52 @@
     document.body.classList.remove('playing');
     setStep(1);
   });
+
+  // ---------------- Resume-progress banner ----------------
+  (function initResumeBanner(){
+    const saved = loadSavedProgress();
+    if(!saved) return;
+
+    const banner = document.getElementById('resumeBanner');
+    const details = document.getElementById('resumeDetails');
+    const mins = Math.floor((saved.elapsedMs||0)/60000);
+    const secs = Math.floor(((saved.elapsedMs||0)%60000)/1000);
+    const timeStr = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+    details.innerHTML = `<span class="hint">${saved.label || 'Rompecabezas'} · ${saved.rows*saved.cols} piezas · ${saved.placedCount||0}/${saved.totalPieces||saved.rows*saved.cols} colocadas · tiempo ${timeStr}</span>`;
+    banner.style.display = 'block';
+
+    document.getElementById('resumeBtn').addEventListener('click', ()=>{
+      state.rotationEnabled = !!saved.rotationEnabled;
+      rotationToggleEl.classList.toggle('active', state.rotationEnabled);
+      state.sourceLabel = saved.label || '';
+
+      const startResume = ()=>{
+        banner.style.display = 'none';
+        enterPlayMode(saved);
+      };
+
+      if(saved.isBuiltin){
+        setSourceFromDraw(drawEiffelTower, saved.label || 'Torre Eiffel');
+        startResume();
+      } else if(saved.imageDataUrl){
+        const img = new Image();
+        img.onload = ()=>{
+          setSourceFromImageElement(img, saved.label || 'Imagen guardada');
+          startResume();
+        };
+        img.onerror = ()=>{
+          banner.style.display = 'none';
+          clearSavedProgress();
+        };
+        img.src = saved.imageDataUrl;
+      }
+    });
+
+    document.getElementById('discardResumeBtn').addEventListener('click', ()=>{
+      clearSavedProgress();
+      banner.style.display = 'none';
+    });
+  })();
 
   document.getElementById('shuffleBtn').addEventListener('click', ()=>{
     generatePuzzle();
