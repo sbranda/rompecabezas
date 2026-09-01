@@ -564,25 +564,57 @@
     {key:'pyramids', label:'Pirámides de Giza',    draw:drawPyramids},
     {key:'worldmap', label:'Mapa del Mundo',       draw:drawWorldMap},
     {key:'flags',    label:'Banderas del Mundo',   draw:drawFlagsMosaic},
+
+    // Optional real-photo versions: these DON'T ship with the app (no image
+    // files are bundled/embedded in this code). If you place matching files
+    // in the SAME root folder as index.html on your own hosting, these
+    // thumbnails light up and use your real photos instead of the
+    // illustrations above. If a file isn't there, that thumbnail is simply
+    // skipped — nothing breaks.
+    {key:'eiffel-photo',   label:'Torre Eiffel (foto)',            src:'eiffel.jpg'},
+    {key:'liberty-photo',  label:'Estatua de la Libertad (foto)',  src:'liberty.jpg'},
+    {key:'pyramids-photo', label:'Pirámides de Giza (foto)',       src:'pyramids.jpg'},
+    {key:'worldmap-photo', label:'Mapa del Mundo (foto)',          src:'worldmap.jpg'},
+    {key:'flags-photo',    label:'Banderas del Mundo (foto)',      src:'flags.jpg'},
   ];
 
   // ---------------- UI: builtin thumbnails ----------------
   const builtinThumbsEl = document.getElementById('builtinThumbs');
   BUILTIN_IMAGES.forEach(img=>{
-    const c = document.createElement('canvas');
-    c.width=140; c.height=180;
-    img.draw(c);
+    if(img.draw){
+      const c = document.createElement('canvas');
+      c.width=140; c.height=180;
+      img.draw(c);
+      addBuiltinThumb(c.toDataURL(), img);
+    } else if(img.src){
+      // Real-photo option: only appears if the file actually exists where
+      // this app is hosted (see BUILTIN_IMAGES comment above). A missing
+      // file just means this thumbnail quietly doesn't show up.
+      const probe = new Image();
+      probe.onload = ()=> addBuiltinThumb(img.src, img);
+      probe.onerror = ()=>{ /* file not present on this hosting — skip it */ };
+      probe.src = img.src;
+    }
+  });
+
+  function addBuiltinThumb(thumbSrc, img){
     const div = document.createElement('div');
     div.className='thumb';
-    div.style.backgroundImage = `url(${c.toDataURL()})`;
+    div.style.backgroundImage = `url(${thumbSrc})`;
     div.title = img.label;
     div.addEventListener('click', ()=>{
       document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('active'));
       div.classList.add('active');
-      setSourceFromDraw(img.draw, img.label);
+      if(img.draw){
+        setSourceFromDraw(img.draw, img.label);
+      } else {
+        const full = new Image();
+        full.onload = ()=> setSourceFromImageElement(full, img.label);
+        full.src = img.src;
+      }
     });
     builtinThumbsEl.appendChild(div);
-  });
+  }
 
   function setSourceFromDraw(drawFn, label){
     const c = document.createElement('canvas');
