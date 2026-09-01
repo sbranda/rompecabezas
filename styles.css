@@ -321,7 +321,7 @@
   body.playing #tray{
     flex:0 0 118px;
     margin-top:0;
-    margin-bottom:6px;
+    margin-bottom:12px;
   }
   #tray h2{
     font-family:'Rajdhani',sans-serif;
