@@ -502,7 +502,13 @@
   // position/offset calculation elsewhere just works, with zero awareness
   // that rotation exists at all.
   function paintPieceCanvas(canvas, edges, pieceW, pieceH, tabSize, srcCanvas, sx, sy, rotationDeg){
-    const pad = tabSize;
+    // The tab curve's control points bulge out to 1.65x tabSize (see
+    // edgePath's `bulge` calls), so the canvas needs at least that much
+    // margin around each piece — using just 1x tabSize truncated the tip
+    // of every tab against the canvas's own edge, leaving a crescent-shaped
+    // gap where the matching socket on the neighboring piece expected the
+    // full bulge to reach.
+    const pad = tabSize * 1.7;
     const pieceCanvasW = pieceW + pad*2;
     const pieceCanvasH = pieceH + pad*2;
     const rot = ((rotationDeg % 360) + 360) % 360;
@@ -526,22 +532,28 @@
     ctx.restore();
 
     // Physical-puzzle-piece edge: a darker groove with a thin light
-    // highlight running through it, so the cut lines between pieces read
-    // as an actual cardboard edge rather than a flat printed line.
+    // highlight running through it. This is drawn UNCLIPPED and thin on
+    // purpose — two independently-clipped, antialiased shapes that are
+    // meant to fit together exactly (a tab and its matching socket) never
+    // quite meet at the pixel level, leaving a hairline gap that shows the
+    // dark board through it. A slightly bleeding stroke is what papers
+    // over that seam; clipping it (which seems like the "correct" fix)
+    // actually removes the bleed and makes the gap visible again.
     ctx.save();
     ctx.translate(pad, pad);
     tracePiecePath(ctx, pieceW, pieceH, edges, tabSize);
-    ctx.lineWidth = Math.max(1.6, tabSize*0.14);
-    ctx.strokeStyle = 'rgba(0,0,0,0.42)';
+    ctx.lineWidth = Math.max(1, Math.min(1.6, tabSize*0.05));
+    ctx.strokeStyle = 'rgba(0,0,0,0.38)';
     ctx.stroke();
     ctx.restore();
 
     ctx.save();
     ctx.translate(pad, pad);
     tracePiecePath(ctx, pieceW, pieceH, edges, tabSize);
-    ctx.lineWidth = Math.max(0.6, tabSize*0.05);
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = Math.max(0.5, Math.min(0.8, tabSize*0.018));
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
     ctx.stroke();
+    ctx.restore();
     ctx.restore();
 
     ctx.restore();
@@ -883,14 +895,16 @@
         slot.style.top = (r*pieceH)+'px';
         slot.style.width = pieceW+'px';
         slot.style.height = pieceH+'px';
-        slot.dataset.correctX = c*pieceW - tabSize;
-        slot.dataset.correctY = r*pieceH - tabSize;
+        slot.dataset.correctX = c*pieceW - tabSize*1.7;
+        slot.dataset.correctY = r*pieceH - tabSize*1.7;
         attachSlotDoubleTap(slot);
         boardEl.appendChild(slot);
       }
     }
 
-    const pad = tabSize;
+    // Must match the padding used in paintPieceCanvas exactly (see the note
+    // there): 1x tabSize truncates the tab curve's own control points.
+    const pad = tabSize * 1.7;
     const pieceCanvasW = pieceW + pad*2;
     const pieceCanvasH = pieceH + pad*2;
 
@@ -1309,8 +1323,8 @@
         // A drop counts as "on the board" purely based on the board's own
         // bounds — no need to reason about where the tray sits relative to
         // it, which is what broke when the tray moved above the board.
-        const overBoard = dropX > -state.tabSize && dropX < state.boardW &&
-                           dropY > -state.tabSize && dropY < state.boardH;
+        const overBoard = dropX > -state.tabSize*1.7 && dropX < state.boardW &&
+                           dropY > -state.tabSize*1.7 && dropY < state.boardH;
         if(overBoard){
           el.classList.remove('in-tray');
           settleInto(boardEl, dropX, dropY);
