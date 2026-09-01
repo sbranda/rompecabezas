@@ -217,384 +217,50 @@
     });
   }
 
-  // ---------------- Built-in demo image: procedural world map ----------------
-  function drawWorldMap(canvas){
-    const w = canvas.width, h = canvas.height;
-    const ctx = canvas.getContext('2d');
-
-    // Ocean
-    const ocean = ctx.createLinearGradient(0,0,0,h);
-    ocean.addColorStop(0, '#16324A');
-    ocean.addColorStop(1, '#0E2436');
-    ctx.fillStyle = ocean;
-    ctx.fillRect(0,0,w,h);
-
-    // Latitude/longitude grid (blueprint style, matches the app's own aesthetic)
-    ctx.strokeStyle = 'rgba(201,162,39,0.14)';
-    ctx.lineWidth = 1;
-    for(let y=0; y<=h; y+=h/12){
-      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
-    }
-    for(let x=0; x<=w; x+=w/10){
-      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
-    }
-
-    const land = '#C9A227';
-    const landShade = '#A9852090';
-    ctx.fillStyle = land;
-
-    function blob(points){
-      ctx.beginPath();
-      ctx.moveTo(points[0][0]*w, points[0][1]*h);
-      for(let i=1;i<points.length;i++) ctx.lineTo(points[i][0]*w, points[i][1]*h);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // Rough, stylized continent silhouettes (not geographically precise —
-    // this is a puzzle prop, not an atlas).
-    blob([[0.06,0.20],[0.16,0.16],[0.20,0.26],[0.15,0.38],[0.18,0.48],[0.12,0.55],[0.14,0.62],
-          [0.09,0.60],[0.05,0.46],[0.07,0.32]]); // North America
-    blob([[0.16,0.58],[0.22,0.56],[0.24,0.66],[0.20,0.82],[0.16,0.92],[0.12,0.80],[0.13,0.66]]); // South America
-    blob([[0.42,0.18],[0.52,0.16],[0.56,0.24],[0.50,0.30],[0.53,0.36],[0.46,0.34],[0.41,0.26]]); // Europe
-    blob([[0.44,0.36],[0.54,0.34],[0.58,0.50],[0.52,0.66],[0.46,0.72],[0.40,0.60],[0.41,0.46]]); // Africa
-    blob([[0.56,0.16],[0.72,0.14],[0.80,0.22],[0.76,0.34],[0.66,0.42],[0.58,0.36],[0.55,0.26]]); // Asia
-    blob([[0.78,0.62],[0.88,0.60],[0.90,0.68],[0.82,0.72],[0.76,0.68]]); // Australia
-
-    // subtle shading pass for depth
-    ctx.fillStyle = landShade;
-    blob([[0.06,0.20],[0.11,0.18],[0.14,0.30],[0.10,0.40],[0.07,0.32]]);
-    blob([[0.44,0.36],[0.50,0.35],[0.52,0.50],[0.47,0.60],[0.42,0.50]]);
-
-    // compass rose
-    const cx = w*0.87, cy = h*0.86, r = Math.min(w,h)*0.055;
-    ctx.strokeStyle = 'rgba(237,230,214,0.7)';
-    ctx.fillStyle = 'rgba(237,230,214,0.85)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
-    [0,90,180,270].forEach(a=>{
-      const rad = a*Math.PI/180;
-      ctx.beginPath();
-      ctx.moveTo(cx,cy);
-      ctx.lineTo(cx+Math.sin(rad)*r*1.3, cy-Math.cos(rad)*r*1.3);
-      ctx.stroke();
-    });
-    ctx.font = `${Math.round(r*0.7)}px sans-serif`;
-    ctx.textAlign='center';
-    ctx.fillText('N', cx, cy-r*1.5);
-  }
-
-  // ---------------- Built-in demo image: procedural pyramids of Giza ----------------
-  function drawPyramids(canvas){
-    const w = canvas.width, h = canvas.height;
-    const ctx = canvas.getContext('2d');
-
-    const sky = ctx.createLinearGradient(0,0,0,h);
-    sky.addColorStop(0, '#1B2A4A');
-    sky.addColorStop(0.45, '#5A4A6B');
-    sky.addColorStop(0.75, '#C9793F');
-    sky.addColorStop(1, '#F0B860');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0,0,w,h);
-
-    // sun
-    ctx.save();
-    const glow = ctx.createRadialGradient(w*0.5,h*0.62,0, w*0.5,h*0.62, w*0.18);
-    glow.addColorStop(0,'rgba(255,220,160,0.9)');
-    glow.addColorStop(1,'rgba(255,220,160,0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(0,0,w,h);
-    ctx.restore();
-
-    // stars in the upper sky
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    for(let i=0;i<40;i++){
-      const sx = (i*97 % w), sy = (i*53 % (h*0.35));
-      ctx.fillRect(sx, sy, 1.5, 1.5);
-    }
-
-    // dunes
-    const ground = h*0.72;
-    ctx.fillStyle = '#3A2A22';
-    ctx.beginPath();
-    ctx.moveTo(0,h);
-    ctx.lineTo(0,ground+20);
-    ctx.quadraticCurveTo(w*0.3, ground-10, w*0.55, ground+15);
-    ctx.quadraticCurveTo(w*0.8, ground+35, w, ground+5);
-    ctx.lineTo(w,h);
-    ctx.closePath();
-    ctx.fill();
-
-    function pyramid(cx, baseY, baseW, peakH, colorLit, colorShade){
-      const half = baseW/2;
-      ctx.fillStyle = colorShade;
-      ctx.beginPath();
-      ctx.moveTo(cx, baseY-peakH);
-      ctx.lineTo(cx+half, baseY);
-      ctx.lineTo(cx, baseY);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = colorLit;
-      ctx.beginPath();
-      ctx.moveTo(cx, baseY-peakH);
-      ctx.lineTo(cx-half, baseY);
-      ctx.lineTo(cx, baseY);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    pyramid(w*0.68, ground+30, w*0.30, h*0.30, '#C99A5B', '#8F6A3D');
-    pyramid(w*0.40, ground+45, w*0.42, h*0.42, '#D9AE72', '#A17A45');
-    pyramid(w*0.15, ground+35, w*0.22, h*0.20, '#C99A5B', '#8F6A3D');
-
-    // small sphinx-like silhouette for scale/interest
-    ctx.fillStyle = '#6B4E30';
-    ctx.beginPath();
-    ctx.ellipse(w*0.86, ground+55, w*0.09, h*0.03, 0, 0, Math.PI*2);
-    ctx.fill();
-    ctx.fillRect(w*0.90, ground+30, w*0.03, h*0.045);
-  }
-
-  // ---------------- Built-in demo image: procedural Statue of Liberty ----------------
-  function drawStatueOfLiberty(canvas){
-    const w = canvas.width, h = canvas.height;
-    const ctx = canvas.getContext('2d');
-
-    const sky = ctx.createLinearGradient(0,0,0,h);
-    sky.addColorStop(0, '#22314F');
-    sky.addColorStop(0.6, '#3E5470');
-    sky.addColorStop(1, '#B7C9C4');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0,0,w,h);
-
-    // harbor water
-    const waterY = h*0.82;
-    const water = ctx.createLinearGradient(0,waterY,0,h);
-    water.addColorStop(0,'#264858');
-    water.addColorStop(1,'#132631');
-    ctx.fillStyle = water;
-    ctx.fillRect(0,waterY,w,h-waterY);
-    ctx.strokeStyle='rgba(230,240,235,0.25)';
-    for(let i=0;i<8;i++){
-      const y = waterY + 8 + i*((h-waterY)/9);
-      ctx.beginPath(); ctx.moveTo(w*0.1,y); ctx.lineTo(w*0.9,y); ctx.stroke();
-    }
-
-    const cx = w*0.5;
-    // pedestal
-    const pedTop = h*0.62, pedBot = waterY;
-    ctx.fillStyle = '#8B8378';
-    ctx.beginPath();
-    ctx.moveTo(cx-w*0.11, pedBot);
-    ctx.lineTo(cx-w*0.08, pedTop);
-    ctx.lineTo(cx+w*0.08, pedTop);
-    ctx.lineTo(cx+w*0.11, pedBot);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle='rgba(0,0,0,0.15)';
-    for(let i=1;i<5;i++){
-      const y = pedTop + (pedBot-pedTop)*i/5;
-      ctx.beginPath(); ctx.moveTo(cx-w*0.10,y); ctx.lineTo(cx+w*0.10,y); ctx.stroke();
-    }
-
-    // robe (body)
-    const robeTop = h*0.22;
-    ctx.fillStyle = '#5C8A7A';
-    ctx.beginPath();
-    ctx.moveTo(cx, robeTop);
-    ctx.quadraticCurveTo(cx-w*0.10, h*0.40, cx-w*0.075, pedTop);
-    ctx.lineTo(cx+w*0.075, pedTop);
-    ctx.quadraticCurveTo(cx+w*0.10, h*0.40, cx, robeTop);
-    ctx.closePath();
-    ctx.fill();
-    // robe shading folds
-    ctx.strokeStyle='rgba(0,0,0,0.12)';
-    ctx.lineWidth=1.5;
-    for(let i=-2;i<=2;i++){
-      ctx.beginPath();
-      ctx.moveTo(cx+i*w*0.012, robeTop+h*0.06);
-      ctx.quadraticCurveTo(cx+i*w*0.02, h*0.4, cx+i*w*0.03, pedTop-5);
-      ctx.stroke();
-    }
-
-    // head + crown
-    const headY = robeTop - h*0.03;
-    ctx.fillStyle = '#6B9A88';
-    ctx.beginPath();
-    ctx.ellipse(cx, headY, w*0.028, h*0.022, 0, 0, Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle = '#5C8A7A';
-    for(let i=-3;i<=3;i++){
-      const ang = i*0.22;
-      ctx.beginPath();
-      ctx.moveTo(cx+Math.sin(ang)*w*0.02, headY-h*0.01);
-      ctx.lineTo(cx+Math.sin(ang)*w*0.05, headY-h*0.07);
-      ctx.lineTo(cx+Math.sin(ang+0.1)*w*0.02, headY-h*0.008);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // raised arm + torch
-    ctx.strokeStyle = '#5C8A7A';
-    ctx.lineWidth = w*0.02;
-    ctx.lineCap='round';
-    ctx.beginPath();
-    ctx.moveTo(cx+w*0.05, robeTop+h*0.05);
-    ctx.lineTo(cx+w*0.14, robeTop-h*0.10);
-    ctx.stroke();
-    // torch glow
-    ctx.save();
-    const tglow = ctx.createRadialGradient(cx+w*0.14, robeTop-h*0.13, 0, cx+w*0.14, robeTop-h*0.13, w*0.05);
-    tglow.addColorStop(0,'rgba(255,224,140,0.95)');
-    tglow.addColorStop(1,'rgba(255,224,140,0)');
-    ctx.fillStyle = tglow;
-    ctx.beginPath(); ctx.arc(cx+w*0.14, robeTop-h*0.13, w*0.05, 0, Math.PI*2); ctx.fill();
-    ctx.restore();
-    ctx.fillStyle = '#D9AE72';
-    ctx.beginPath();
-    ctx.arc(cx+w*0.14, robeTop-h*0.13, w*0.016, 0, Math.PI*2);
-    ctx.fill();
-
-    // tablet arm (left, held against body)
-    ctx.fillStyle = '#D9AE72';
-    ctx.fillRect(cx-w*0.10, robeTop+h*0.09, w*0.045, h*0.09);
-  }
-
-  // ---------------- Built-in demo image: procedural flag mosaic ----------------
-  function drawFlagsMosaic(canvas){
-    const w = canvas.width, h = canvas.height;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#10161F';
-    ctx.fillRect(0,0,w,h);
-
-    const cols = 2, rows = 3;
-    const padOuter = w*0.04, gap = w*0.03;
-    const cellW = (w - padOuter*2 - gap*(cols-1))/cols;
-    const cellH = (h - padOuter*2 - gap*(rows-1))/rows;
-
-    function cellBox(i){
-      const c = i % cols, r = Math.floor(i/cols);
-      return {
-        x: padOuter + c*(cellW+gap),
-        y: padOuter + r*(cellH+gap),
-        w: cellW, h: cellH,
-      };
-    }
-
-    function withClip(box, drawFn){
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(box.x, box.y, box.w, box.h);
-      ctx.clip();
-      drawFn(box);
-      ctx.restore();
-      ctx.strokeStyle = 'rgba(16,20,28,0.5)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(box.x, box.y, box.w, box.h);
-    }
-
-    // Argentina: light blue / white / light blue, sun in the middle
-    withClip(cellBox(0), (b)=>{
-      ctx.fillStyle = '#75AADB';
-      ctx.fillRect(b.x,b.y,b.w,b.h);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(b.x, b.y+b.h/3, b.w, b.h/3);
-      ctx.fillStyle = '#F6B40E';
-      ctx.beginPath();
-      ctx.arc(b.x+b.w/2, b.y+b.h/2, b.h*0.14, 0, Math.PI*2);
-      ctx.fill();
-    });
-
-    // Japan: white field, red disc
-    withClip(cellBox(1), (b)=>{
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(b.x,b.y,b.w,b.h);
-      ctx.fillStyle = '#BC002D';
-      ctx.beginPath();
-      ctx.arc(b.x+b.w/2, b.y+b.h/2, b.h*0.28, 0, Math.PI*2);
-      ctx.fill();
-    });
-
-    // Italy: green / white / red vertical stripes
-    withClip(cellBox(2), (b)=>{
-      const s = b.w/3;
-      ctx.fillStyle = '#009246'; ctx.fillRect(b.x, b.y, s, b.h);
-      ctx.fillStyle = '#FFFFFF'; ctx.fillRect(b.x+s, b.y, s, b.h);
-      ctx.fillStyle = '#CE2B37'; ctx.fillRect(b.x+2*s, b.y, s, b.h);
-    });
-
-    // Germany: black / red / gold horizontal stripes
-    withClip(cellBox(3), (b)=>{
-      const s = b.h/3;
-      ctx.fillStyle = '#000000'; ctx.fillRect(b.x, b.y, b.w, s);
-      ctx.fillStyle = '#DD0000'; ctx.fillRect(b.x, b.y+s, b.w, s);
-      ctx.fillStyle = '#FFCE00'; ctx.fillRect(b.x, b.y+2*s, b.w, s);
-    });
-
-    // Brazil (simplified): green field, yellow diamond, blue circle
-    withClip(cellBox(4), (b)=>{
-      ctx.fillStyle = '#009C3B';
-      ctx.fillRect(b.x,b.y,b.w,b.h);
-      ctx.fillStyle = '#FFDF00';
-      ctx.beginPath();
-      ctx.moveTo(b.x+b.w/2, b.y+b.h*0.12);
-      ctx.lineTo(b.x+b.w*0.90, b.y+b.h/2);
-      ctx.lineTo(b.x+b.w/2, b.y+b.h*0.88);
-      ctx.lineTo(b.x+b.w*0.10, b.y+b.h/2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#002776';
-      ctx.beginPath();
-      ctx.arc(b.x+b.w/2, b.y+b.h/2, b.h*0.20, 0, Math.PI*2);
-      ctx.fill();
-    });
-
-    // France: blue / white / red vertical stripes
-    withClip(cellBox(5), (b)=>{
-      const s = b.w/3;
-      ctx.fillStyle = '#0055A4'; ctx.fillRect(b.x, b.y, s, b.h);
-      ctx.fillStyle = '#FFFFFF'; ctx.fillRect(b.x+s, b.y, s, b.h);
-      ctx.fillStyle = '#EF4135'; ctx.fillRect(b.x+2*s, b.y, s, b.h);
-    });
-  }
-
   const BUILTIN_IMAGES = [
-    {key:'eiffel',   label:'Torre Eiffel',        draw:drawEiffelTower},
-    {key:'liberty',  label:'Estatua de la Libertad', draw:drawStatueOfLiberty},
-    {key:'pyramids', label:'Pirámides de Giza',    draw:drawPyramids},
-    {key:'worldmap', label:'Mapa del Mundo',       draw:drawWorldMap},
-    {key:'flags',    label:'Banderas del Mundo',   draw:drawFlagsMosaic},
-
-    // Optional real-photo versions: these DON'T ship with the app (no image
-    // files are bundled/embedded in this code). If you place matching files
-    // in the SAME root folder as index.html on your own hosting, these
-    // thumbnails light up and use your real photos instead of the
-    // illustrations above. If a file isn't there, that thumbnail is simply
-    // skipped — nothing breaks.
-    {key:'eiffel-photo',   label:'Torre Eiffel (foto)',            src:'eiffel.jpg'},
-    {key:'liberty-photo',  label:'Estatua de la Libertad (foto)',  src:'liberty.jpg'},
-    {key:'pyramids-photo', label:'Pirámides de Giza (foto)',       src:'pyramids.jpg'},
-    {key:'worldmap-photo', label:'Mapa del Mundo (foto)',          src:'worldmap.jpg'},
-    {key:'flags-photo',    label:'Banderas del Mundo (foto)',      src:'flags.jpg'},
+    // Real-photo options: these DON'T ship with the app (no image files are
+    // bundled/embedded in this code). If you place matching files in the
+    // SAME root folder as index.html on your own hosting, these thumbnails
+    // light up. If a file isn't there, that thumbnail is simply skipped —
+    // nothing breaks.
+    {key:'eiffel-photo',   label:'Torre Eiffel',            src:'eiffel.jpg'},
+    {key:'liberty-photo',  label:'Estatua de la Libertad',  src:'liberty.jpg'},
+    {key:'pyramids-photo', label:'Pirámides de Giza',       src:'pyramids.jpg'},
+    {key:'worldmap-photo', label:'Mapa del Mundo',          src:'worldmap.jpg'},
+    {key:'flags-photo',    label:'Banderas del Mundo',      src:'flags.jpg'},
   ];
 
   // ---------------- UI: builtin thumbnails ----------------
   const builtinThumbsEl = document.getElementById('builtinThumbs');
-  BUILTIN_IMAGES.forEach(img=>{
+  Promise.all(BUILTIN_IMAGES.map(img=>{
     if(img.draw){
-      const c = document.createElement('canvas');
-      c.width=140; c.height=180;
-      img.draw(c);
-      addBuiltinThumb(c.toDataURL(), img);
-    } else if(img.src){
-      // Real-photo option: only appears if the file actually exists where
-      // this app is hosted (see BUILTIN_IMAGES comment above). A missing
-      // file just means this thumbnail quietly doesn't show up.
-      const probe = new Image();
-      probe.onload = ()=> addBuiltinThumb(img.src, img);
-      probe.onerror = ()=>{ /* file not present on this hosting — skip it */ };
-      probe.src = img.src;
+      return Promise.resolve({img, ok:true, thumbSrc:null});
     }
+    // Real-photo option: only appears if the file actually exists where
+    // this app is hosted (see BUILTIN_IMAGES comment above). A missing
+    // file just means this thumbnail quietly doesn't show up.
+    return new Promise(resolve=>{
+      const probe = new Image();
+      probe.onload = ()=> resolve({img, ok:true, thumbSrc:img.src});
+      probe.onerror = ()=> resolve({img, ok:false});
+      probe.src = img.src;
+    });
+  })).then(results=>{
+    // All existence checks run in parallel, but resolve at different times —
+    // adding thumbnails only after every check settles keeps the gallery in
+    // the same order BUILTIN_IMAGES is defined in, instead of whichever
+    // network request happened to finish first.
+    results.forEach(r=>{
+      if(!r.ok) return;
+      if(r.img.draw){
+        const c = document.createElement('canvas');
+        c.width=140; c.height=180;
+        r.img.draw(c);
+        addBuiltinThumb(c.toDataURL(), r.img);
+      } else {
+        addBuiltinThumb(r.thumbSrc, r.img);
+      }
+    });
   });
 
   function addBuiltinThumb(thumbSrc, img){
