@@ -525,12 +525,22 @@
     ctx.drawImage(srcCanvas, sx, sy, pieceCanvasW, pieceCanvasH, -pad, -pad, pieceCanvasW, pieceCanvasH);
     ctx.restore();
 
-    // subtle edge stroke for definition
+    // Physical-puzzle-piece edge: a darker groove with a thin light
+    // highlight running through it, so the cut lines between pieces read
+    // as an actual cardboard edge rather than a flat printed line.
     ctx.save();
     ctx.translate(pad, pad);
     tracePiecePath(ctx, pieceW, pieceH, edges, tabSize);
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(16,20,28,0.55)';
+    ctx.lineWidth = Math.max(1.6, tabSize*0.14);
+    ctx.strokeStyle = 'rgba(0,0,0,0.42)';
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(pad, pad);
+    tracePiecePath(ctx, pieceW, pieceH, edges, tabSize);
+    ctx.lineWidth = Math.max(0.6, tabSize*0.05);
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
     ctx.stroke();
     ctx.restore();
 
