@@ -1490,6 +1490,7 @@
     document.getElementById('winStats').textContent = statsLine;
     lastResultStatsLine = statsLine;
     document.getElementById('shareStatus').textContent = '';
+    document.getElementById('tray').appendChild(document.getElementById('winOverlay'));
     document.getElementById('winOverlay').classList.add('show');
   }
 

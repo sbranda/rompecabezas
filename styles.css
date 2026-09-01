@@ -367,6 +367,39 @@
   }
   .overlay.lose h2{color:var(--danger);}
   .overlay p{color:var(--paper-dim);margin:0 0 20px;font-family:'IBM Plex Mono',monospace;}
+
+  /* The win banner is deliberately NOT a full-screen block, and doesn't even
+     float over the toolbar: it's shown inside the tray instead. By the time
+     someone wins, the tray is empty anyway (every piece is on the board),
+     so this is the one spot that can display the "you win" message without
+     covering the toolbar buttons or the finished picture underneath. */
+  #tray{position:relative;}
+  #tray #winOverlay.show{
+    position:absolute;
+    inset:4px;
+    margin:0;
+    width:auto; height:auto; max-height:none;
+    top:4px; left:4px; right:4px; bottom:4px;
+    transform:none;
+    padding:8px 12px;
+    z-index:60;
+    flex-direction:row;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    row-gap:4px;
+    column-gap:10px;
+    overflow:hidden;
+    background:var(--bg-panel);
+    border:2px solid var(--brass);
+    border-radius:var(--radius);
+    box-shadow:0 6px 20px rgba(0,0,0,0.5);
+  }
+  #tray #winOverlay.show h2{font-size:14px;margin:0;white-space:nowrap;}
+  #tray #winOverlay.show p{font-size:10px;margin:0;flex-basis:100%;text-align:center;}
+  #tray #winOverlay.show .overlay-actions{gap:6px;}
+  #tray #winOverlay.show .btn{padding:5px 9px;font-size:10px;}
+  #tray #winOverlay.show #shareStatus{display:none;}
   .overlay .overlay-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
 
   .hint{font-size:11px;color:var(--paper-dim);line-height:1.5;}
