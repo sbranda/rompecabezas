@@ -25,6 +25,12 @@
     dailyRng: null,
     zoomScale: 1,
     markEdgesEnabled: false,
+    multiplayerMode: null,   // null | 'turns' | 'race'
+    activePlayer: 1,         // for 'turns' mode
+    player1Pieces: 0, player2Pieces: 0,
+    raceStage: null,         // null | 'player1' | 'player2'
+    raceSeed: null,
+    raceTime1: 0,
   };
 
   // ---------------- Seeded RNG (for the daily challenge) ----------------
@@ -889,10 +895,22 @@
 
     // Daily challenge uses a seeded RNG so the cut pattern, initial
     // rotations and shuffle are identical for everyone on the same date.
-    // Resuming a saved puzzle needs no randomness at all (every piece's
-    // exact state is already known), so it just uses Math.random for the
-    // tray's cosmetic ordering.
-    const rand = (!resumeData && state.dailyMode) ? state.dailyRng : Math.random;
+    // Race mode reuses the same trick — a single seed shared by both
+    // players — so Jugador 2 gets the exact same cut/shuffle as Jugador 1,
+    // making the comparison fair. Resuming a saved puzzle needs no
+    // randomness at all (every piece's exact state is already known), so
+    // it just uses Math.random for the tray's cosmetic ordering.
+    const rand = (!resumeData && state.dailyMode) ? state.dailyRng
+      : (!resumeData && state.multiplayerMode === 'race') ? mulberry32(state.raceSeed)
+      : Math.random;
+
+    // A fresh (non-resumed) generation in turns mode starts that puzzle's
+    // turn count over — including "Mezclar", which really is a new puzzle.
+    if(!resumeData && state.multiplayerMode === 'turns'){
+      state.activePlayer = 1;
+      state.player1Pieces = 0;
+      state.player2Pieces = 0;
+    }
 
     // Fit the board fully inside whatever space boardWrap actually has
     // (both width AND height), so the whole puzzle is visible without
@@ -1311,7 +1329,7 @@
           el.style.height = piece.trueH+'px';
           state.placedCount++;
           updateStats();
-          vibrateFeedback(15); playClickSound();
+          vibrateFeedback(15); playClickSound(); recordPlacementForActivePlayer();
           if(state.placedCount === state.totalPieces){
             setTimeout(onWin, 220);
           }
@@ -1376,7 +1394,7 @@
         updateStats();
         snapAnimateInto(boardEl, piece.correctX, piece.correctY);
         setTimeout(()=>pulse(el), 170);
-        vibrateFeedback(15); playClickSound();
+        vibrateFeedback(15); playClickSound(); recordPlacementForActivePlayer();
         if(state.placedCount === state.totalPieces){
           setTimeout(onWin, 220);
         }
@@ -1419,6 +1437,16 @@
   // Subtle haptic feedback on devices that support the Vibration API
   // (mostly Android phones — iOS Safari has no navigator.vibrate at all,
   // and this simply does nothing there, which is the correct fallback).
+  // Local multiplayer: credits a correctly-placed piece to whichever
+  // player currently has the turn, when turns mode is active. A no-op the
+  // rest of the time.
+  function recordPlacementForActivePlayer(){
+    if(state.multiplayerMode !== 'turns') return;
+    if(state.activePlayer === 1) state.player1Pieces++;
+    else state.player2Pieces++;
+    updateTurnUI();
+  }
+
   function vibrateFeedback(pattern){
     try{
       if(navigator.vibrate) navigator.vibrate(pattern);
@@ -1559,6 +1587,24 @@
     const timeText = formatMMSS(elapsedSec); // always the real time here — the
     // point of hiding it during play is to avoid a stressful ticking clock,
     // not to hide the result once the puzzle is actually done.
+
+    // ---- Race mode, stage 1: Jugador 1 just finished — hand off to Jugador 2
+    // on the exact same puzzle (same seed), instead of the normal win flow.
+    if(state.multiplayerMode === 'race' && state.raceStage === 'player1'){
+      state.raceTime1 = elapsedSec;
+      state.raceStage = 'player2';
+      clearSavedProgress();
+      document.getElementById('winOverlay').querySelector('h2').textContent = '🏁 ¡Turno del Jugador 2!';
+      document.getElementById('winStats').textContent =
+        `Jugador 1 terminó en ${timeText}. Pasále el dispositivo al Jugador 2 y arranquen cuando esté listo.`;
+      document.getElementById('shareResultBtn').style.display = 'none';
+      document.getElementById('playAgainBtn').textContent = 'Jugador 2: ¡Arrancar!';
+      document.getElementById('shareStatus').textContent = '';
+      document.getElementById('tray').appendChild(document.getElementById('winOverlay'));
+      document.getElementById('winOverlay').classList.add('show');
+      return;
+    }
+
     let dailyExtra = '';
     if(state.dailyMode){
       const result = recordDailyCompletion(elapsedSec);
@@ -1568,6 +1614,25 @@
         dailyExtra = ` · racha: ${result.streak} día${result.streak===1?'':'s'} · mejor de hoy: ${bm}:${bs}`;
       }
     }
+
+    // ---- Race mode, stage 2: Jugador 2 just finished — declare a winner.
+    let raceExtra = '', raceTitle = null;
+    if(state.multiplayerMode === 'race' && state.raceStage === 'player2'){
+      const t1 = state.raceTime1, t2 = elapsedSec;
+      raceTitle = t1 === t2 ? '🤝 ¡Empate!' : (t2 < t1 ? '🏆 ¡Gana Jugador 2!' : '🏆 ¡Gana Jugador 1!');
+      raceExtra = ` · Jugador 1: ${formatMMSS(t1)} · Jugador 2: ${formatMMSS(t2)}`;
+      state.multiplayerMode = null;
+      state.raceStage = null;
+    }
+
+    // ---- Turns mode: show the per-player breakdown, then close out the session.
+    let turnsExtra = '';
+    if(state.multiplayerMode === 'turns'){
+      turnsExtra = ` · Jugador 1: ${state.player1Pieces} piezas · Jugador 2: ${state.player2Pieces} piezas`;
+      state.multiplayerMode = null;
+      updateTurnUI();
+    }
+
     recordHistoryEntry({
       completedAt: Date.now(),
       label: state.sourceLabel,
@@ -1579,10 +1644,13 @@
       isDaily: state.dailyMode,
     });
     clearSavedProgress();
-    const statsLine = `${state.sourceLabel} · ${state.totalPieces} piezas · tiempo ${timeText}${dailyExtra}`;
+    const statsLine = `${state.sourceLabel} · ${state.totalPieces} piezas · tiempo ${timeText}${dailyExtra}${raceExtra}${turnsExtra}`;
+    document.getElementById('winOverlay').querySelector('h2').textContent = raceTitle || 'Rompecabezas completo';
     document.getElementById('winStats').textContent = statsLine;
     lastResultStatsLine = statsLine;
     document.getElementById('shareStatus').textContent = '';
+    document.getElementById('shareResultBtn').style.display = ''; // undo a possible race hand-off hide
+    document.getElementById('playAgainBtn').textContent = 'Armar otro'; // undo a possible race hand-off label
     document.getElementById('tray').appendChild(document.getElementById('winOverlay'));
     document.getElementById('winOverlay').classList.add('show');
   }
@@ -1677,7 +1745,10 @@
     setStep(3);
     // wait one frame so boardWrap has its final flex-allocated size
     // before we measure it to fit the board.
-    requestAnimationFrame(()=>requestAnimationFrame(()=>generatePuzzle(resumeData)));
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      generatePuzzle(resumeData);
+      updateTurnUI();
+    }));
   }
 
   document.getElementById('generateBtn').addEventListener('click', ()=>{
@@ -1745,6 +1816,7 @@
 
   document.getElementById('shuffleBtn').addEventListener('click', ()=>{
     generatePuzzle();
+    updateTurnUI();
   });
 
   document.getElementById('shareResultBtn').addEventListener('click', shareResult);
@@ -1752,6 +1824,7 @@
   document.getElementById('playAgainBtn').addEventListener('click', ()=>{
     document.getElementById('winOverlay').classList.remove('show');
     generatePuzzle();
+    updateTurnUI();
   });
 
   document.getElementById('retryTimeAttackBtn').addEventListener('click', ()=>{
@@ -1831,9 +1904,57 @@
     rotationToggleEl.classList.remove('active');
     state.timeAttackEnabled = false;
     timeAttackToggleEl.classList.remove('active');
+    state.multiplayerMode = null;
+    updateMultiplayerStatus();
     state.difficulty = DAILY_DIFFICULTY;
     setSourceFromDraw(drawEiffelTower, 'Torre Eiffel — Desafío diario');
     enterPlayMode();
+  });
+
+  // ---------------- Local multiplayer ----------------
+  function updateMultiplayerStatus(){
+    const el = document.getElementById('multiplayerStatus');
+    if(state.multiplayerMode === 'turns'){
+      el.textContent = 'Modo por turnos activado — elegí imagen y dificultad, después "Armar piezas".';
+    } else if(state.multiplayerMode === 'race'){
+      el.textContent = 'Modo carrera activado — Jugador 1 arma primero; después le toca a Jugador 2 con el mismo rompecabezas.';
+    } else {
+      el.textContent = '';
+    }
+  }
+
+  document.getElementById('turnsModeBtn').addEventListener('click', ()=>{
+    state.multiplayerMode = 'turns';
+    state.activePlayer = 1;
+    state.player1Pieces = 0;
+    state.player2Pieces = 0;
+    state.dailyMode = false;
+    updateMultiplayerStatus();
+  });
+
+  document.getElementById('raceModeBtn').addEventListener('click', ()=>{
+    state.multiplayerMode = 'race';
+    state.raceStage = 'player1';
+    state.raceSeed = Math.floor(Math.random()*1e9);
+    state.raceTime1 = 0;
+    state.dailyMode = false;
+    updateMultiplayerStatus();
+  });
+
+  function updateTurnUI(){
+    const bar = document.getElementById('turnBar');
+    if(state.multiplayerMode !== 'turns'){
+      bar.style.display = 'none';
+      return;
+    }
+    bar.style.display = 'block';
+    document.getElementById('turnLabel').textContent =
+      `Turno: Jugador ${state.activePlayer} · J1: ${state.player1Pieces} · J2: ${state.player2Pieces}`;
+  }
+
+  document.getElementById('passTurnBtn').addEventListener('click', ()=>{
+    state.activePlayer = state.activePlayer === 1 ? 2 : 1;
+    updateTurnUI();
   });
 
   let refShown=false;

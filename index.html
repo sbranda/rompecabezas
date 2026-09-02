@@ -63,6 +63,16 @@
       <div class="daily-stats" id="dailyStats"></div>
     </div>
 
+    <div class="daily-card" id="multiplayerCard">
+      <h2>👥 Multijugador local</h2>
+      <span class="hint">Para dos personas compartiendo el mismo dispositivo. Elegí un modo, después seguí normalmente con la imagen y la dificultad.</span>
+      <div class="row" style="margin-top:10px; margin-bottom:0;">
+        <button class="btn secondary" id="turnsModeBtn">🔄 Por turnos</button>
+        <button class="btn secondary" id="raceModeBtn">🏁 Carrera</button>
+      </div>
+      <div class="daily-stats" id="multiplayerStatus"></div>
+    </div>
+
     <h2>01 · Elegí la imagen</h2>
     <div class="row">
       <span class="field-label">Modelo incluido</span>
@@ -125,6 +135,13 @@
         <button class="btn secondary" id="changeImgBtn">← Imagen</button>
         <button class="btn secondary" id="shuffleBtn">Mezclar</button>
         <button class="btn secondary" id="showRefBtn">Referencia</button>
+      </div>
+    </div>
+
+    <div class="panel" id="turnBar" style="display:none; margin-bottom:10px;">
+      <div class="row" style="margin-bottom:0; justify-content:space-between;">
+        <span id="turnLabel" style="font-family:'Rajdhani',sans-serif; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--brass-bright);"></span>
+        <button class="btn secondary" id="passTurnBtn">Pasar turno</button>
       </div>
     </div>
 
