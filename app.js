@@ -1075,28 +1075,27 @@
     function beginLift(){
       mode = 'dragging';
       el.classList.add('dragging');
-      // offsetX/offsetY were computed at pointerdown from startRect (the
-      // piece's resting "hand size"). Growing the piece to its true size
-      // the moment it's lifted — rather than only on a correct snap — means
-      // it's shown at roughly the same scale as the board slot it needs to
-      // land in, instead of looking comically tiny next to a huge slot
-      // (which is exactly what made low-piece-count puzzles like the
-      // 12-piece one feel like pieces "didn't fit"). Since the box grows,
-      // the grab offset must scale up by the same factor so the piece
-      // doesn't jump under the finger.
+
+      // The piece is carried at its true size *times the current board
+      // zoom* — otherwise, once zoomed in, the board's slots look bigger
+      // on screen while the piece being dragged stays the same visual
+      // size, so it never looks like it actually fits the hole even though
+      // the underlying drop-position math is correct.
       //
-      // This only applies when picking up from the TRAY: a piece already
-      // loose on the board is typically already at true size, and if the
-      // board is currently zoomed in, startRect.width reflects that zoom
-      // (not a hand-size/true-size mismatch) — applying growScale there
-      // would incorrectly shrink it back down by the zoom factor.
-      if(piece.container === 'tray'){
-        const growScale = piece.trueW / startRect.width;
-        offsetX *= growScale;
-        offsetY *= growScale;
-        el.style.width = piece.trueW+'px';
-        el.style.height = piece.trueH+'px';
-      }
+      // The grab point is recomputed as a FRACTION of whatever size the
+      // piece currently is (hand-size in the tray, true-size already
+      // sitting on the board, etc.) and then reapplied to the new carry
+      // size — that's what makes this correct regardless of the piece's
+      // size before this exact moment, and regardless of zoom.
+      const zoom = state.zoomScale || 1;
+      const targetW = piece.trueW * zoom;
+      const targetH = piece.trueH * zoom;
+      const fracX = offsetX / startRect.width;
+      const fracY = offsetY / startRect.height;
+      offsetX = fracX * targetW;
+      offsetY = fracY * targetH;
+      el.style.width = targetW+'px';
+      el.style.height = targetH+'px';
 
       el.style.position = 'fixed';
       el.style.left = '0px';
@@ -1211,10 +1210,13 @@
       el.style.transform = 'none'; // rotation lives in the pixels, never in CSS
       el.style.left = left+'px';
       el.style.top = top+'px';
-      if(growToTrue){
-        el.style.width = piece.trueW+'px';
-        el.style.height = piece.trueH+'px';
-      }
+      // Always settle at plain true size (never true*zoom) once it's a
+      // child of the board — the board's own CSS zoom transform is what
+      // makes it appear the right size on screen, matching its neighbors.
+      // Without this, a piece carried at a zoomed-up size that gets freely
+      // dropped (not an exact placement) would end up double-scaled.
+      el.style.width = piece.trueW+'px';
+      el.style.height = piece.trueH+'px';
       parent.appendChild(el);
     }
 
