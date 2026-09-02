@@ -248,21 +248,56 @@
     background:var(--bg-panel);
     border:1px solid var(--steel-dim);
     border-radius:var(--radius);
-    overflow:auto;
-    touch-action:none;
-    display:flex;
-    align-items:flex-start;
-    justify-content:center;
+    overflow:hidden;
   }
   body.playing #boardWrap{
     flex:1 1 auto;
     min-height:0;
     height:auto;
   }
-  #board{
+  #boardScroll{
+    position:absolute;
+    inset:0;
+    overflow:auto;
+    touch-action:none;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+  }
+  /* Panning only makes sense once zoomed in — at 1x the board already fits
+     entirely, and touch-action:none is what keeps ordinary piece dragging
+     free of scroll interference the rest of the time. */
+  #boardScroll.zoomed{touch-action:pan-x pan-y;}
+  #boardZoomStage{
     position:relative;
     flex:0 0 auto;
+    margin:auto;
   }
+  #board{
+    position:relative;
+    transform-origin:0 0;
+  }
+  #zoomControls{
+    position:absolute;
+    top:8px;
+    right:8px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    z-index:40;
+  }
+  #zoomControls button{
+    width:32px;height:32px;
+    background:var(--bg-panel-2);
+    border:1px solid var(--steel-dim);
+    border-radius:var(--radius);
+    color:var(--paper);
+    font-size:15px;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 6px rgba(0,0,0,0.35);
+  }
+  #zoomControls button:hover{border-color:var(--brass);}
   .slot{
     position:absolute;
     border:1px dashed rgba(201,162,39,0.25);

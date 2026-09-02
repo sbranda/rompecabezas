@@ -23,6 +23,7 @@
     dailyMode: false,
     dailyDate: null,
     dailyRng: null,
+    zoomScale: 1,
   };
 
   // ---------------- Seeded RNG (for the daily challenge) ----------------
@@ -570,8 +571,26 @@
 
   // ---------------- Puzzle generation ----------------
   const boardWrapEl = document.getElementById('boardWrap');
+  const boardScrollEl = document.getElementById('boardScroll');
+  const boardZoomStageEl = document.getElementById('boardZoomStage');
   const boardEl = document.getElementById('board');
   const trayInnerEl = document.getElementById('trayInner');
+
+  // ---------------- Board zoom (for high piece counts) ----------------
+  const ZOOM_MIN = 1, ZOOM_MAX = 3, ZOOM_STEP = 0.5;
+
+  function setZoom(scale){
+    scale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, scale));
+    state.zoomScale = scale;
+    boardEl.style.transform = scale === 1 ? 'none' : `scale(${scale})`;
+    boardZoomStageEl.style.width = (state.boardW * scale) + 'px';
+    boardZoomStageEl.style.height = (state.boardH * scale) + 'px';
+    boardScrollEl.classList.toggle('zoomed', scale > 1);
+  }
+
+  document.getElementById('zoomInBtn').addEventListener('click', ()=> setZoom((state.zoomScale||1) + ZOOM_STEP));
+  document.getElementById('zoomOutBtn').addEventListener('click', ()=> setZoom((state.zoomScale||1) - ZOOM_STEP));
+  document.getElementById('zoomResetBtn').addEventListener('click', ()=> setZoom(1));
 
   function clearBoard(){
     boardEl.innerHTML='';
@@ -885,6 +904,7 @@
 
     boardEl.style.width = boardW+'px';
     boardEl.style.height = boardH+'px';
+    setZoom(1); // every fresh/resumed board starts unzoomed
 
     // draw slot outlines (visual target grid)
     for(let r=0;r<rows;r++){
@@ -1064,11 +1084,19 @@
       // 12-piece one feel like pieces "didn't fit"). Since the box grows,
       // the grab offset must scale up by the same factor so the piece
       // doesn't jump under the finger.
-      const growScale = piece.trueW / startRect.width;
-      offsetX *= growScale;
-      offsetY *= growScale;
-      el.style.width = piece.trueW+'px';
-      el.style.height = piece.trueH+'px';
+      //
+      // This only applies when picking up from the TRAY: a piece already
+      // loose on the board is typically already at true size, and if the
+      // board is currently zoomed in, startRect.width reflects that zoom
+      // (not a hand-size/true-size mismatch) — applying growScale there
+      // would incorrectly shrink it back down by the zoom factor.
+      if(piece.container === 'tray'){
+        const growScale = piece.trueW / startRect.width;
+        offsetX *= growScale;
+        offsetY *= growScale;
+        el.style.width = piece.trueW+'px';
+        el.style.height = piece.trueH+'px';
+      }
 
       el.style.position = 'fixed';
       el.style.left = '0px';
@@ -1271,8 +1299,13 @@
     // time it's just being carried around).
     function snapAnimateInto(parent, left, top){
       const parentRect = parent.getBoundingClientRect();
-      const finalX = parentRect.left + left;
-      const finalY = parentRect.top + top;
+      const zoom = state.zoomScale || 1;
+      // Opposite conversion from endDrag: left/top are true board-resolution
+      // units, but the animation moves a fixed-position element in screen
+      // space, so they need to be scaled UP by the current zoom before
+      // adding them to the board's on-screen (already-scaled) position.
+      const finalX = parentRect.left + left*zoom;
+      const finalY = parentRect.top + top*zoom;
       const anim = el.animate(
         [{transform: el.style.transform}, {transform:`translate3d(${finalX}px, ${finalY}px, 0)`}],
         {duration:170, easing:'cubic-bezier(.2,.85,.3,1.15)'}
@@ -1290,8 +1323,13 @@
       el.style.margin = '';
 
       const boardRect = boardEl.getBoundingClientRect();
-      const dropX = e.clientX - offsetX - boardRect.left;
-      const dropY = e.clientY - offsetY - boardRect.top;
+      const zoom = state.zoomScale || 1;
+      // boardRect reflects the CSS-scaled (zoomed) on-screen size, but every
+      // piece position (correctX/Y, threshold, etc.) is expressed in true,
+      // unscaled board-resolution pixels — so screen-space drop coordinates
+      // must be divided back down by the current zoom before comparing.
+      const dropX = (e.clientX - offsetX - boardRect.left) / zoom;
+      const dropY = (e.clientY - offsetY - boardRect.top) / zoom;
 
       const threshold = Math.min(state.pieceW, state.pieceH) * 0.32;
       const dist = Math.hypot(dropX - piece.correctX, dropY - piece.correctY);
