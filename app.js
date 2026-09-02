@@ -24,6 +24,7 @@
     dailyDate: null,
     dailyRng: null,
     zoomScale: 1,
+    markEdgesEnabled: false,
   };
 
   // ---------------- Seeded RNG (for the daily challenge) ----------------
@@ -432,6 +433,13 @@
     }
   });
 
+  // ---------------- UI: mark edge pieces toggle ----------------
+  const markEdgesToggleEl = document.getElementById('markEdgesToggle');
+  markEdgesToggleEl.addEventListener('click', ()=>{
+    state.markEdgesEnabled = !state.markEdgesEnabled;
+    markEdgesToggleEl.classList.toggle('active', state.markEdgesEnabled);
+  });
+
   // ---------------- Jigsaw geometry ----------------
   // edge sign convention: +1 = tab pointing outward (away from piece a's own body, into neighbor)
   //                        -1 = blank / indentation
@@ -502,7 +510,7 @@
   // that rotation (swapped for 90°/270°), so getBoundingClientRect and every
   // position/offset calculation elsewhere just works, with zero awareness
   // that rotation exists at all.
-  function paintPieceCanvas(canvas, edges, pieceW, pieceH, tabSize, srcCanvas, sx, sy, rotationDeg){
+  function paintPieceCanvas(canvas, edges, pieceW, pieceH, tabSize, srcCanvas, sx, sy, rotationDeg, isEdgePiece){
     // The tab curve's control points bulge out to 1.65x tabSize (see
     // edgePath's `bulge` calls), so the canvas needs at least that much
     // margin around each piece — using just 1x tabSize truncated the tip
@@ -555,7 +563,27 @@
     ctx.strokeStyle = 'rgba(255,255,255,0.5)';
     ctx.stroke();
     ctx.restore();
-    ctx.restore();
+
+    // Edge-piece marker: a small corner triangle, in the same drawing frame
+    // as everything above so it rotates along with the piece's own
+    // rotation state, always sitting in the piece's "true" top-left corner
+    // (a fixed spot on the artwork) rather than a screen-relative one.
+    if(isEdgePiece){
+      const markSize = Math.min(pieceW, pieceH) * 0.16;
+      ctx.save();
+      ctx.translate(pad, pad);
+      ctx.beginPath();
+      ctx.moveTo(3, 3);
+      ctx.lineTo(3 + markSize, 3);
+      ctx.lineTo(3, 3 + markSize);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(228,193,88,0.9)';
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(16,20,28,0.6)';
+      ctx.stroke();
+      ctx.restore();
+    }
 
     ctx.restore();
   }
@@ -950,16 +978,17 @@
         const rotation = saved
           ? saved.rotation
           : (state.rotationEnabled ? [0,90,180,270][Math.floor(rand()*4)] : 0);
+        const isEdge = (r===0 || r===rows-1 || c===0 || c===cols-1) && state.markEdgesEnabled;
 
         const pc = document.createElement('canvas');
-        paintPieceCanvas(pc, edges, pieceW, pieceH, tabSize, srcCanvas, sx, sy, rotation);
+        paintPieceCanvas(pc, edges, pieceW, pieceH, tabSize, srcCanvas, sx, sy, rotation, isEdge);
 
         const correctX = c*pieceW - pad;
         const correctY = r*pieceH - pad;
 
         piecesData.push({
           r, c, canvas:pc, correctX, correctY, w:pieceCanvasW, h:pieceCanvasH,
-          edges, sx, sy, rotation, placed: saved ? saved.placed : false,
+          edges, sx, sy, rotation, isEdge, placed: saved ? saved.placed : false,
         });
       }
     }
@@ -982,7 +1011,7 @@
       const pieceObj = {
         el, r: pd.r, c: pd.c, correctX: pd.correctX, correctY: pd.correctY,
         trueW: pd.w, trueH: pd.h,        // full size at rotation 0, applied on correct placement
-        edges: pd.edges, sx: pd.sx, sy: pd.sy,
+        edges: pd.edges, sx: pd.sx, sy: pd.sy, isEdge: pd.isEdge,
         placed: pd.placed, container: pd.placed ? 'board' : 'tray',
         rotation: pd.rotation,           // 0 = correct orientation; 90/180/270 = needs a flip
       };
@@ -1250,7 +1279,7 @@
     // placement on its own — no need to pick it up and drop it again.
     function rotatePiece(){
       piece.rotation = (piece.rotation + 90) % 360;
-      paintPieceCanvas(el, piece.edges, state.pieceW, state.pieceH, state.tabSize, state.srcCanvas, piece.sx, piece.sy, piece.rotation);
+      paintPieceCanvas(el, piece.edges, state.pieceW, state.pieceH, state.tabSize, state.srcCanvas, piece.sx, piece.sy, piece.rotation, piece.isEdge);
 
       // Deliberately do NOT try to re-center the piece as its box resizes
       // (90°/270° swap width and height) — anchoring from the existing
