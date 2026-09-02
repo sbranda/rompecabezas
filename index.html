@@ -193,8 +193,12 @@
   </div>
   <div class="overlay-actions">
     <button class="btn" id="closeHistoryBtn">Cerrar</button>
+    <button class="btn secondary" id="exportHistoryBtn">📤 Exportar</button>
+    <button class="btn secondary" id="importHistoryBtn">📥 Importar</button>
     <button class="btn secondary" id="clearHistoryBtn">Borrar historial</button>
   </div>
+  <input type="file" id="importHistoryFile" accept="application/json,.json" style="display:none;">
+  <span class="hint" id="importHistoryStatus" style="display:block; margin-top:8px;"></span>
 </div>
 
 <div id="bestTimesOverlay" class="overlay">

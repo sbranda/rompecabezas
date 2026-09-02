@@ -804,6 +804,87 @@
     return d.innerHTML;
   }
 
+  // ---------------- Export / import history + daily stats (as a file) ----------------
+  // Everything here lives only in this browser's localStorage — moving to a
+  // new phone or clearing site data loses it. Exporting to a plain JSON
+  // file the person can re-import elsewhere is the only way around that
+  // without standing up a real backend.
+  const EXPORT_VERSION = 1;
+
+  function exportHistory(){
+    try{
+      const payload = {
+        app: 'taller-de-rompecabezas',
+        version: EXPORT_VERSION,
+        exportedAt: new Date().toISOString(),
+        history: loadHistory(),
+        daily: loadDailyData(),
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `rompecabezas-historial-${todayStr()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 2000);
+      document.getElementById('importHistoryStatus').textContent = 'Archivo descargado.';
+    }catch(err){
+      document.getElementById('importHistoryStatus').textContent = 'No se pudo exportar el historial.';
+    }
+  }
+
+  function importHistoryFromFile(file){
+    const statusEl = document.getElementById('importHistoryStatus');
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const data = JSON.parse(reader.result);
+        if(!data || !Array.isArray(data.history)) throw new Error('formato inválido');
+
+        // History: combine with what's already here rather than overwrite —
+        // switching between two phones for a while shouldn't lose either
+        // one's entries. De-duped on the combination of fields that make a
+        // completed-puzzle entry unique.
+        const existing = loadHistory();
+        const seen = new Set(existing.map(e => `${e.completedAt}|${e.label}|${e.timeSec}`));
+        const merged = existing.slice();
+        data.history.forEach(e=>{
+          const key = `${e.completedAt}|${e.label}|${e.timeSec}`;
+          if(!seen.has(key)){ merged.push(e); seen.add(key); }
+        });
+        merged.sort((a,b)=>b.completedAt-a.completedAt);
+        if(merged.length > HISTORY_MAX) merged.length = HISTORY_MAX;
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(merged));
+
+        // Daily stats: keep the better (lower) time per date on either side,
+        // and trust whichever device's streak is more recent.
+        if(data.daily){
+          const current = loadDailyData();
+          const mergedBest = Object.assign({}, current.best);
+          Object.entries(data.daily.best || {}).forEach(([date, sec])=>{
+            if(mergedBest[date] === undefined || sec < mergedBest[date]) mergedBest[date] = sec;
+          });
+          let streak = current.streak, lastDate = current.lastDate;
+          if(data.daily.lastDate && (!lastDate || data.daily.lastDate > lastDate)){
+            streak = data.daily.streak;
+            lastDate = data.daily.lastDate;
+          }
+          localStorage.setItem(DAILY_KEY, JSON.stringify({streak, lastDate, best: mergedBest}));
+        }
+
+        renderHistory();
+        renderBestTimes();
+        refreshDailyStats();
+        statusEl.textContent = `Se importaron ${data.history.length} registro${data.history.length===1?'':'s'} (combinados con lo que ya tenías acá).`;
+      }catch(err){
+        statusEl.textContent = 'No se pudo leer ese archivo — ¿es un historial exportado desde esta app?';
+      }
+    };
+    reader.readAsText(file);
+  }
+
   // ---------------- Best times per difficulty (derived from history) ----------------
   function renderBestTimes(){
     const history = loadHistory();
@@ -1876,6 +1957,7 @@
   // ---------------- History overlay ----------------
   document.getElementById('openHistoryBtn').addEventListener('click', ()=>{
     renderHistory();
+    document.getElementById('importHistoryStatus').textContent = '';
     document.getElementById('historyOverlay').classList.add('show');
   });
   document.getElementById('closeHistoryBtn').addEventListener('click', ()=>{
@@ -1884,6 +1966,15 @@
   document.getElementById('clearHistoryBtn').addEventListener('click', ()=>{
     try{ localStorage.removeItem(HISTORY_KEY); }catch(err){}
     renderHistory();
+  });
+  document.getElementById('exportHistoryBtn').addEventListener('click', exportHistory);
+  document.getElementById('importHistoryBtn').addEventListener('click', ()=>{
+    document.getElementById('importHistoryFile').click();
+  });
+  document.getElementById('importHistoryFile').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(file) importHistoryFromFile(file);
+    e.target.value = ''; // allow re-importing the same filename later
   });
 
   // ---------------- Best-times overlay ----------------
