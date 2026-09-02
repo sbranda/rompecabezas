@@ -204,6 +204,21 @@
   }
   .thumb.active{border-color:var(--brass-bright);}
 
+  #largePreviewWrap{
+    margin:12px 0 4px;
+    border:1px solid var(--steel-dim);
+    border-radius:var(--radius);
+    background:var(--bg-deep);
+    padding:8px;
+    text-align:center;
+  }
+  #largePreview{
+    max-width:100%;
+    max-height:min(45vh, 360px);
+    border-radius:2px;
+    display:inline-block;
+  }
+
   /* ---- Board ---- */
   #board-area{display:block;}
 

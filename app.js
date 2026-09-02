@@ -290,6 +290,14 @@
     builtinThumbsEl.appendChild(div);
   }
 
+  function updateLargePreview(){
+    const wrap = document.getElementById('largePreviewWrap');
+    const img = document.getElementById('largePreview');
+    if(!state.sourceImg){ wrap.style.display = 'none'; return; }
+    img.src = state.sourceImg.toDataURL ? state.sourceImg.toDataURL() : '';
+    wrap.style.display = 'block';
+  }
+
   function setSourceFromDraw(drawFn, label){
     const c = document.createElement('canvas');
     c.width = 900; c.height = 1150;
@@ -299,6 +307,7 @@
     state.sourceIsBuiltin = true;
     document.getElementById('imgStatus').textContent = `Imagen lista: ${label}`;
     document.getElementById('generateBtn').disabled = false;
+    updateLargePreview();
     setStep(2);
   }
 
@@ -323,6 +332,7 @@
     state.sourceIsBuiltin = false;
     document.getElementById('imgStatus').textContent = `Imagen lista: ${label}`;
     document.getElementById('generateBtn').disabled = false;
+    updateLargePreview();
     setStep(2);
   }
 
