@@ -69,15 +69,15 @@
       <div class="daily-stats" id="dailyStats"></div>
     </div>
 
-    <div class="daily-card" id="multiplayerCard">
-      <h2>👥 Multijugador local</h2>
+    <details class="daily-card collapsible-card" id="multiplayerCard">
+      <summary>👥 Multijugador local</summary>
       <span class="hint">Para dos personas compartiendo el mismo dispositivo. Elegí un modo, después seguí normalmente con la imagen y la dificultad.</span>
       <div class="row" style="margin-top:10px; margin-bottom:0;">
         <button class="btn secondary" id="turnsModeBtn">🔄 Por turnos</button>
         <button class="btn secondary" id="raceModeBtn">🏁 Carrera</button>
       </div>
       <div class="daily-stats" id="multiplayerStatus"></div>
-    </div>
+    </details>
 
     <h2>01 · Elegí la imagen</h2>
     <div class="row">
@@ -113,27 +113,31 @@
     <h2 style="margin-top:16px;">02 · Elegí la dificultad</h2>
     <div class="row" id="difficultyRow"></div>
 
-    <div class="row">
-      <div class="chip" id="rotationToggle">🔄 Piezas rotadas (extra difícil)</div>
-      <span class="hint">Algunas piezas empiezan giradas. Tocalas (sin arrastrar) para rotarlas 90° antes de encajarlas.</span>
-    </div>
+    <details class="daily-card collapsible-card" style="margin-top:14px;">
+      <summary>⚙️ Opciones avanzadas</summary>
 
-    <div class="row">
-      <div class="chip" id="timeAttackToggle">⏱️ Contrarreloj</div>
-      <span class="hint" id="timeAttackHint">Tenés un tiempo límite para terminar según la cantidad de piezas. Si se acaba, perdés esa partida.</span>
-    </div>
+      <div class="row" style="margin-top:10px;">
+        <div class="chip" id="rotationToggle">🔄 Piezas rotadas (extra difícil)</div>
+        <span class="hint">Algunas piezas empiezan giradas. Tocalas (sin arrastrar) para rotarlas 90° antes de encajarlas.</span>
+      </div>
 
-    <div class="row">
-      <div class="chip" id="noTimerToggle">🧘 Sin cronómetro (modo relajado)</div>
-      <span class="hint">Ocultá el tiempo mientras jugás, para armar con calma y sin presión. Igual queda guardado en tu historial al terminar.</span>
-    </div>
+      <div class="row">
+        <div class="chip" id="timeAttackToggle">⏱️ Contrarreloj</div>
+        <span class="hint" id="timeAttackHint">Tenés un tiempo límite para terminar según la cantidad de piezas. Si se acaba, perdés esa partida.</span>
+      </div>
 
-    <div class="row">
-      <div class="chip" id="markEdgesToggle">🔲 Marcar piezas de borde</div>
-      <span class="hint">Las piezas que van en el borde del rompecabezas llevan una marquita en la esquina, para separarlas primero como se hace con uno de verdad.</span>
-    </div>
+      <div class="row">
+        <div class="chip" id="noTimerToggle">🧘 Sin cronómetro (modo relajado)</div>
+        <span class="hint">Ocultá el tiempo mientras jugás, para armar con calma y sin presión. Igual queda guardado en tu historial al terminar.</span>
+      </div>
 
-    <div class="row" style="margin-top:6px;">
+      <div class="row" style="margin-bottom:0;">
+        <div class="chip" id="markEdgesToggle">🔲 Marcar piezas de borde</div>
+        <span class="hint">Las piezas que van en el borde del rompecabezas llevan una marquita en la esquina, para separarlas primero como se hace con uno de verdad.</span>
+      </div>
+    </details>
+
+    <div class="row" style="margin-top:14px;">
       <button class="btn" id="generateBtn" disabled>Armar piezas</button>
       <span class="hint" id="imgStatus">Ningún origen de imagen seleccionado todavía.</span>
     </div>

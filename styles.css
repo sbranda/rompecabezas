@@ -514,6 +514,29 @@
     color:var(--success);
     margin-bottom:6px;
   }
+
+  .collapsible-card{margin-bottom:14px;}
+  .collapsible-card summary{
+    font-family:'Rajdhani',sans-serif;
+    font-weight:700;
+    font-size:18px;
+    letter-spacing:0.04em;
+    color:var(--success);
+    cursor:pointer;
+    list-style:none;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .collapsible-card summary::-webkit-details-marker{display:none;}
+  .collapsible-card summary::after{
+    content:'▸';
+    font-size:14px;
+    color:var(--paper-dim);
+    transition:transform .15s ease;
+  }
+  .collapsible-card[open] summary::after{transform:rotate(90deg);}
+  .collapsible-card[open] summary{margin-bottom:6px;}
   .daily-card .btn{background:var(--success);border-color:var(--success);color:#0d1912;}
   .daily-stats{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--paper-dim);margin-top:8px;}
   .daily-stats b{color:var(--paper);}
