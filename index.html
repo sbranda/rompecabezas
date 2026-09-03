@@ -21,7 +21,7 @@
   <div class="splash-sub">Agilidad y Desafío</div>
 </div>
 
-<button class="sound-toggle" id="soundToggleBtn" title="Sonido">🔊</button>
+<button class="sound-toggle" id="soundToggleBtn" title="Sonido" aria-label="Silenciar o activar el sonido">🔊</button>
 
 <div class="wrap">
 
@@ -87,7 +87,7 @@
     <h2>01 · Elegí la imagen</h2>
     <div class="row">
       <span class="field-label">Modelo incluido</span>
-      <div class="thumbs" id="builtinThumbs"></div>
+      <div class="thumbs" id="builtinThumbs" role="group" aria-label="Modelos de imagen incluidos"></div>
     </div>
     <div class="row">
       <span class="field-label">Subir foto</span>
@@ -116,28 +116,28 @@
     </div>
 
     <h2 style="margin-top:16px;">02 · Elegí la dificultad</h2>
-    <div class="row" id="difficultyRow"></div>
+    <div class="row" id="difficultyRow" role="group" aria-label="Nivel de dificultad"></div>
 
     <details class="daily-card collapsible-card" style="margin-top:14px;">
       <summary>⚙️ Opciones avanzadas</summary>
 
       <div class="row" style="margin-top:10px;">
-        <div class="chip" id="rotationToggle">🔄 Piezas rotadas (extra difícil)</div>
+        <button type="button" class="chip" id="rotationToggle" aria-pressed="false">🔄 Piezas rotadas (extra difícil)</button>
         <span class="hint">Algunas piezas empiezan giradas. Tocalas (sin arrastrar) para rotarlas 90° antes de encajarlas.</span>
       </div>
 
       <div class="row">
-        <div class="chip" id="timeAttackToggle">⏱️ Contrarreloj</div>
+        <button type="button" class="chip" id="timeAttackToggle" aria-pressed="false">⏱️ Contrarreloj</button>
         <span class="hint" id="timeAttackHint">Tenés un tiempo límite para terminar según la cantidad de piezas. Si se acaba, perdés esa partida.</span>
       </div>
 
       <div class="row">
-        <div class="chip" id="noTimerToggle">🧘 Sin cronómetro (modo relajado)</div>
+        <button type="button" class="chip" id="noTimerToggle" aria-pressed="false">🧘 Sin cronómetro (modo relajado)</button>
         <span class="hint">Ocultá el tiempo mientras jugás, para armar con calma y sin presión. Igual queda guardado en tu historial al terminar.</span>
       </div>
 
       <div class="row" style="margin-bottom:0;">
-        <div class="chip" id="markEdgesToggle">🔲 Marcar piezas de borde</div>
+        <button type="button" class="chip" id="markEdgesToggle" aria-pressed="false">🔲 Marcar piezas de borde</button>
         <span class="hint">Las piezas que van en el borde del rompecabezas llevan una marquita en la esquina, para separarlas primero como se hace con uno de verdad.</span>
       </div>
     </details>
@@ -180,9 +180,9 @@
         </div>
       </div>
       <div id="zoomControls">
-        <button id="zoomInBtn" title="Acercar">➕</button>
-        <button id="zoomOutBtn" title="Alejar">➖</button>
-        <button id="zoomResetBtn" title="Restablecer">⟲</button>
+        <button id="zoomInBtn" title="Acercar" aria-label="Acercar el tablero">➕</button>
+        <button id="zoomOutBtn" title="Alejar" aria-label="Alejar el tablero">➖</button>
+        <button id="zoomResetBtn" title="Restablecer" aria-label="Restablecer el zoom del tablero">⟲</button>
       </div>
     </div>
   </div>
@@ -234,6 +234,8 @@
     <button class="btn" id="closeBestTimesBtn">Cerrar</button>
   </div>
 </div>
+
+<div id="ariaLiveStatus" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
 <canvas id="hiddenCanvas" style="display:none;"></canvas>
 <canvas id="sourceCanvas" style="display:none;"></canvas>

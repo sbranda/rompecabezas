@@ -275,13 +275,17 @@
   });
 
   function addBuiltinThumb(thumbSrc, img){
-    const div = document.createElement('div');
+    const div = document.createElement('button');
+    div.type = 'button';
     div.className='thumb';
     div.style.backgroundImage = `url(${thumbSrc})`;
     div.title = img.label;
+    div.setAttribute('aria-label', img.label);
+    div.setAttribute('aria-pressed', 'false');
     div.addEventListener('click', ()=>{
-      document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.thumb').forEach(t=>{ t.classList.remove('active'); t.setAttribute('aria-pressed','false'); });
       div.classList.add('active');
+      div.setAttribute('aria-pressed', 'true');
       if(img.draw){
         setSourceFromDraw(img.draw, img.label);
       } else {
@@ -346,7 +350,7 @@
     reader.onload = ()=>{
       const img = new Image();
       img.onload = ()=>{
-        document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('active'));
+        document.querySelectorAll('.thumb').forEach(t=>{ t.classList.remove('active'); t.setAttribute('aria-pressed','false'); });
         setSourceFromImageElement(img, file.name);
       };
       img.src = reader.result;
@@ -361,7 +365,7 @@
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = ()=>{
-      document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.thumb').forEach(t=>{ t.classList.remove('active'); t.setAttribute('aria-pressed','false'); });
       setSourceFromImageElement(img, 'Imagen de URL');
     };
     img.onerror = ()=>{
@@ -388,7 +392,7 @@
     img.crossOrigin = 'anonymous';
     img.onload = ()=>{
       btn.disabled = false;
-      document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.thumb').forEach(t=>{ t.classList.remove('active'); t.setAttribute('aria-pressed','false'); });
       setSourceFromImageElement(img, `IA: "${prompt}"`);
       statusEl.textContent = 'Usa un servicio gratuito externo (Pollinations.ai), no de Anthropic. Necesita internet y puede tardar unos segundos.';
       if(onDone) onDone(true);
@@ -441,12 +445,15 @@
   // ---------------- UI: difficulty chips ----------------
   const difficultyRow = document.getElementById('difficultyRow');
   DIFFICULTIES.forEach((d,i)=>{
-    const chip = document.createElement('div');
+    const chip = document.createElement('button');
+    chip.type = 'button';
     chip.className = 'chip' + (i===1?' active':'');
+    chip.setAttribute('aria-pressed', i===1 ? 'true' : 'false');
     chip.textContent = `${d.label} · ${d.rows*d.cols} piezas`;
     chip.addEventListener('click', ()=>{
-      document.querySelectorAll('#difficultyRow .chip').forEach(c=>c.classList.remove('active'));
+      document.querySelectorAll('#difficultyRow .chip').forEach(c=>{ c.classList.remove('active'); c.setAttribute('aria-pressed','false'); });
       chip.classList.add('active');
+      chip.setAttribute('aria-pressed', 'true');
       state.difficulty = d;
       setStep(2);
       updateComboWarning();
@@ -460,6 +467,7 @@
   rotationToggleEl.addEventListener('click', ()=>{
     state.rotationEnabled = !state.rotationEnabled;
     rotationToggleEl.classList.toggle('active', state.rotationEnabled);
+    rotationToggleEl.setAttribute('aria-pressed', String(state.rotationEnabled));
     updateComboWarning();
   });
 
@@ -468,11 +476,13 @@
   timeAttackToggleEl.addEventListener('click', ()=>{
     state.timeAttackEnabled = !state.timeAttackEnabled;
     timeAttackToggleEl.classList.toggle('active', state.timeAttackEnabled);
+    timeAttackToggleEl.setAttribute('aria-pressed', String(state.timeAttackEnabled));
     if(state.timeAttackEnabled){
       // Contrarreloj needs a visible, ticking countdown — the two modes
       // are opposites, so turning one on turns the other off.
       state.hideTimer = false;
       noTimerToggleEl.classList.remove('active');
+      noTimerToggleEl.setAttribute('aria-pressed', 'false');
     }
     updateComboWarning();
   });
@@ -482,9 +492,11 @@
   noTimerToggleEl.addEventListener('click', ()=>{
     state.hideTimer = !state.hideTimer;
     noTimerToggleEl.classList.toggle('active', state.hideTimer);
+    noTimerToggleEl.setAttribute('aria-pressed', String(state.hideTimer));
     if(state.hideTimer){
       state.timeAttackEnabled = false;
       timeAttackToggleEl.classList.remove('active');
+      timeAttackToggleEl.setAttribute('aria-pressed', 'false');
     }
   });
 
@@ -493,6 +505,7 @@
   markEdgesToggleEl.addEventListener('click', ()=>{
     state.markEdgesEnabled = !state.markEdgesEnabled;
     markEdgesToggleEl.classList.toggle('active', state.markEdgesEnabled);
+    markEdgesToggleEl.setAttribute('aria-pressed', String(state.markEdgesEnabled));
   });
 
   // ---------------- Jigsaw geometry ----------------
@@ -1460,6 +1473,7 @@
           state.placedCount++;
           updateStats();
           vibrateFeedback(15); playClickSound(); recordPlacementForActivePlayer();
+          announce(`Pieza colocada. ${state.placedCount} de ${state.totalPieces}.`);
           if(state.placedCount === state.totalPieces){
             setTimeout(onWin, 220);
           }
@@ -1525,6 +1539,7 @@
         snapAnimateInto(boardEl, piece.correctX, piece.correctY);
         setTimeout(()=>pulse(el), 170);
         vibrateFeedback(15); playClickSound(); recordPlacementForActivePlayer();
+          announce(`Pieza colocada. ${state.placedCount} de ${state.totalPieces}.`);
         if(state.placedCount === state.totalPieces){
           setTimeout(onWin, 220);
         }
@@ -1575,6 +1590,14 @@
     if(state.activePlayer === 1) state.player1Pieces++;
     else state.player2Pieces++;
     updateTurnUI();
+  }
+
+  // Announces a short message to screen readers via the visually-hidden
+  // aria-live region, without interrupting whatever the person is
+  // currently doing (aria-live="polite" queues rather than barges in).
+  function announce(message){
+    const el = document.getElementById('ariaLiveStatus');
+    if(el) el.textContent = message;
   }
 
   function vibrateFeedback(pattern){
@@ -1706,6 +1729,7 @@
     document.getElementById('timeUpStats').textContent =
       `${state.sourceLabel} · ${state.placedCount}/${state.totalPieces} piezas colocadas`;
     document.getElementById('timeUpOverlay').classList.add('show');
+    announce('Se acabó el tiempo.');
   }
 
   let lastResultStatsLine = '';
@@ -1732,6 +1756,7 @@
       document.getElementById('shareStatus').textContent = '';
       document.getElementById('tray').appendChild(document.getElementById('winOverlay'));
       document.getElementById('winOverlay').classList.add('show');
+      announce(`Jugador 1 terminó en ${timeText}. Turno del Jugador 2.`);
       return;
     }
 
@@ -1783,6 +1808,7 @@
     document.getElementById('playAgainBtn').textContent = 'Armar otro'; // undo a possible race hand-off label
     document.getElementById('tray').appendChild(document.getElementById('winOverlay'));
     document.getElementById('winOverlay').classList.add('show');
+    announce(`¡Rompecabezas completo! ${statsLine}`);
   }
 
   // ---------------- Share the finished puzzle as an image ----------------
@@ -1904,7 +1930,7 @@
       const pick = availableBuiltins[Math.floor(Math.random()*availableBuiltins.length)];
       const img = new Image();
       img.onload = ()=>{
-        document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('active'));
+        document.querySelectorAll('.thumb').forEach(t=>{ t.classList.remove('active'); t.setAttribute('aria-pressed','false'); });
         setSourceFromImageElement(img, pick.img.label);
         quickStartWithImageReady();
       };
@@ -1953,8 +1979,10 @@
     document.getElementById('resumeBtn').addEventListener('click', ()=>{
       state.rotationEnabled = !!saved.rotationEnabled;
       rotationToggleEl.classList.toggle('active', state.rotationEnabled);
+      rotationToggleEl.setAttribute('aria-pressed', String(state.rotationEnabled));
       state.timeAttackEnabled = !!saved.timeAttackEnabled;
       timeAttackToggleEl.classList.toggle('active', state.timeAttackEnabled);
+      timeAttackToggleEl.setAttribute('aria-pressed', String(state.timeAttackEnabled));
       state.dailyMode = !!saved.isDaily;
       state.dailyDate = saved.dailyDate || null;
       state.sourceLabel = saved.label || '';
@@ -2085,8 +2113,10 @@
     state.dailyRng = mulberry32(hashStringToSeed('rompecabezas-diario-'+dateStr));
     state.rotationEnabled = false;
     rotationToggleEl.classList.remove('active');
+    rotationToggleEl.setAttribute('aria-pressed', 'false');
     state.timeAttackEnabled = false;
     timeAttackToggleEl.classList.remove('active');
+    timeAttackToggleEl.setAttribute('aria-pressed', 'false');
     state.multiplayerMode = null;
     updateMultiplayerStatus();
     state.difficulty = DAILY_DIFFICULTY;
@@ -2138,6 +2168,7 @@
   document.getElementById('passTurnBtn').addEventListener('click', ()=>{
     state.activePlayer = state.activePlayer === 1 ? 2 : 1;
     updateTurnUI();
+    announce(`Turno de Jugador ${state.activePlayer}.`);
   });
 
   let refShown=false;
