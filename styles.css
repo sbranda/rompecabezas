@@ -497,6 +497,15 @@
   .overlay .overlay-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
 
   .hint{font-size:11px;color:var(--paper-dim);line-height:1.5;}
+  #comboWarning{
+    display:block;
+    color:var(--danger);
+    font-weight:600;
+    padding:8px 10px;
+    border:1px solid var(--danger);
+    border-radius:var(--radius);
+    background:rgba(193,88,75,0.1);
+  }
 
   .stat-value.urgent{color:var(--danger);animation:urgent-pulse 1s ease-in-out infinite;}
   @keyframes urgent-pulse{0%,100%{opacity:1;}50%{opacity:0.45;}}

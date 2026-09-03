@@ -410,6 +410,34 @@
     generateWithAI(prompt);
   });
 
+  // ---------------- Warn about unusually tough combinations ----------------
+  // Purely informational — never blocks starting the puzzle, just sets
+  // expectations before committing to something that might be frustrating.
+  function updateComboWarning(){
+    const row = document.getElementById('comboWarningRow');
+    const el = document.getElementById('comboWarning');
+    const pieceCount = state.difficulty.rows * state.difficulty.cols;
+    const isHardDifficulty = pieceCount >= 120; // Maestro / Extremo
+
+    let message = '';
+    if(isHardDifficulty && state.rotationEnabled && state.timeAttackEnabled){
+      message = '⚠️ Rotación + Contrarreloj + tantas piezas es una combinación muy exigente — es fácil que no te alcance el tiempo.';
+    } else if(isHardDifficulty && state.timeAttackEnabled){
+      message = '⚠️ Con esta cantidad de piezas, el contrarreloj puede quedar muy justo.';
+    } else if(isHardDifficulty && state.rotationEnabled){
+      message = '⚠️ Rotación con tantas piezas puede llevar bastante tiempo — nada te apura, pero avisado estás.';
+    } else if(state.rotationEnabled && state.timeAttackEnabled){
+      message = '⚠️ Rotación + Contrarreloj juntos son bastante más difíciles de lo normal.';
+    }
+
+    if(message){
+      el.textContent = message;
+      row.style.display = 'block';
+    } else {
+      row.style.display = 'none';
+    }
+  }
+
   // ---------------- UI: difficulty chips ----------------
   const difficultyRow = document.getElementById('difficultyRow');
   DIFFICULTIES.forEach((d,i)=>{
@@ -421,6 +449,7 @@
       chip.classList.add('active');
       state.difficulty = d;
       setStep(2);
+      updateComboWarning();
     });
     difficultyRow.appendChild(chip);
   });
@@ -431,6 +460,7 @@
   rotationToggleEl.addEventListener('click', ()=>{
     state.rotationEnabled = !state.rotationEnabled;
     rotationToggleEl.classList.toggle('active', state.rotationEnabled);
+    updateComboWarning();
   });
 
   // ---------------- UI: time attack toggle ----------------
@@ -444,6 +474,7 @@
       state.hideTimer = false;
       noTimerToggleEl.classList.remove('active');
     }
+    updateComboWarning();
   });
 
   // ---------------- UI: relaxed / no-visible-timer toggle ----------------
@@ -1903,6 +1934,7 @@
     document.getElementById('setupPanel').classList.remove('hide');
     document.body.classList.remove('playing');
     setStep(1);
+    updateComboWarning();
   });
 
   // ---------------- Resume-progress banner ----------------
