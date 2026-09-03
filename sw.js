@@ -3,14 +3,15 @@
 // there's a new service worker to install at all — a service worker file
 // that never changes is invisible to the update check, so a version bump
 // here matters even if nothing else in this file is touched.
-const CACHE_NAME = 'rompecabezas-v2';
+const CACHE_NAME = 'rompecabezas-v3';
 const CORE_ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './manifest.json',
-  './icon.svg'
+  './icon.png',
+  './icon-180.png'
 ];
 
 self.addEventListener('install', (event) => {

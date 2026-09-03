@@ -1794,7 +1794,7 @@
         try{
           await navigator.share({
             files: [file],
-            title: 'Taller de Rompecabezas',
+            title: 'Puzzle Ya: Agilidad y Desafío',
             text: lastResultStatsLine,
           });
           statusEl.textContent = '';
@@ -2087,5 +2087,16 @@
       navigator.serviceWorker.register('sw.js').catch(()=>{/* ignore if not hosted */});
     });
   }
+
+  // Splash screen: shown instantly on load (no network needed, it's just
+  // markup+CSS), held for a brief moment so it actually registers as a
+  // "launch" rather than a flash, then faded out.
+  setTimeout(()=>{
+    const splash = document.getElementById('splashScreen');
+    if(splash){
+      splash.classList.add('hide');
+      setTimeout(()=>splash.remove(), 600);
+    }
+  }, 900);
 
 })();
