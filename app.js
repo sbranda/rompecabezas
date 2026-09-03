@@ -2089,14 +2089,14 @@
   }
 
   // Splash screen: shown instantly on load (no network needed, it's just
-  // markup+CSS), held for a brief moment so it actually registers as a
-  // "launch" rather than a flash, then faded out.
+  // markup+CSS), held for 5s so it reads as a proper launch screen, then
+  // faded out.
   setTimeout(()=>{
     const splash = document.getElementById('splashScreen');
     if(splash){
       splash.classList.add('hide');
       setTimeout(()=>splash.remove(), 600);
     }
-  }, 900);
+  }, 5000);
 
 })();
