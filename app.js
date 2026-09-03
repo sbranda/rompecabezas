@@ -240,6 +240,8 @@
 
   // ---------------- UI: builtin thumbnails ----------------
   const builtinThumbsEl = document.getElementById('builtinThumbs');
+  let availableBuiltins = []; // populated below once existence checks settle; used by "Jugar ya"
+
   Promise.all(BUILTIN_IMAGES.map(img=>{
     if(img.draw){
       return Promise.resolve({img, ok:true, thumbSrc:null});
@@ -269,6 +271,7 @@
         addBuiltinThumb(r.thumbSrc, r.img);
       }
     });
+    availableBuiltins = results.filter(r=>r.ok);
   });
 
   function addBuiltinThumb(thumbSrc, img){
@@ -368,15 +371,9 @@
   });
 
   // ---------------- AI image generation (Pollinations.ai, no API key) ----------------
-  document.getElementById('generateAiBtn').addEventListener('click', ()=>{
-    const prompt = document.getElementById('aiPromptInput').value.trim();
+  function generateWithAI(prompt, onDone){
     const statusEl = document.getElementById('aiStatus');
     const btn = document.getElementById('generateAiBtn');
-    if(!prompt){
-      statusEl.textContent = 'Escribí un tema primero (ej: "un castillo entre nubes").';
-      return;
-    }
-
     btn.disabled = true;
     statusEl.textContent = 'Generando imagen con IA… puede tardar unos segundos.';
 
@@ -394,12 +391,23 @@
       document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('active'));
       setSourceFromImageElement(img, `IA: "${prompt}"`);
       statusEl.textContent = 'Usa un servicio gratuito externo (Pollinations.ai), no de Anthropic. Necesita internet y puede tardar unos segundos.';
+      if(onDone) onDone(true);
     };
     img.onerror = ()=>{
       btn.disabled = false;
       statusEl.textContent = 'No se pudo generar la imagen (¿hay internet?). Probá de nuevo en un momento.';
+      if(onDone) onDone(false);
     };
     img.src = genUrl;
+  }
+
+  document.getElementById('generateAiBtn').addEventListener('click', ()=>{
+    const prompt = document.getElementById('aiPromptInput').value.trim();
+    if(!prompt){
+      document.getElementById('aiStatus').textContent = 'Escribí un tema primero (ej: "un castillo entre nubes").';
+      return;
+    }
+    generateWithAI(prompt);
   });
 
   // ---------------- UI: difficulty chips ----------------
@@ -1841,6 +1849,48 @@
       updateTurnUI();
     }));
   }
+
+  // ---------------- Quick start: one tap, no decisions ----------------
+  const QUICKSTART_PROMPTS = [
+    'un castillo entre nubes al atardecer',
+    'un dragón dormido sobre un tesoro',
+    'una ciudad futurista de noche con luces de neón',
+    'un bosque encantado con luciérnagas',
+    'un faro en medio de una tormenta',
+    'un jardín japonés con cerezos en flor',
+  ];
+
+  function quickStartWithImageReady(){
+    // Medium difficulty is the second chip (index 1) in DIFFICULTIES.
+    const chips = document.querySelectorAll('#difficultyRow .chip');
+    if(chips[1]) chips[1].click();
+    state.dailyMode = false;
+    enterPlayMode();
+  }
+
+  document.getElementById('quickStartBtn').addEventListener('click', ()=>{
+    if(availableBuiltins.length){
+      const pick = availableBuiltins[Math.floor(Math.random()*availableBuiltins.length)];
+      const img = new Image();
+      img.onload = ()=>{
+        document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('active'));
+        setSourceFromImageElement(img, pick.img.label);
+        quickStartWithImageReady();
+      };
+      img.onerror = ()=>{
+        // Shouldn't normally happen (already probed successfully once), but
+        // fall back to AI generation rather than leaving the person stuck.
+        const prompt = QUICKSTART_PROMPTS[Math.floor(Math.random()*QUICKSTART_PROMPTS.length)];
+        generateWithAI(prompt, ok => { if(ok) quickStartWithImageReady(); });
+      };
+      img.src = pick.thumbSrc;
+    } else {
+      // No built-in photos on this hosting — AI generation is the only
+      // "no extra taps needed" option left.
+      const prompt = QUICKSTART_PROMPTS[Math.floor(Math.random()*QUICKSTART_PROMPTS.length)];
+      generateWithAI(prompt, ok => { if(ok) quickStartWithImageReady(); });
+    }
+  });
 
   document.getElementById('generateBtn').addEventListener('click', ()=>{
     state.dailyMode = false;

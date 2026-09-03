@@ -501,6 +501,24 @@
   .stat-value.urgent{color:var(--danger);animation:urgent-pulse 1s ease-in-out infinite;}
   @keyframes urgent-pulse{0%,100%{opacity:1;}50%{opacity:0.45;}}
 
+  .quickstart-card{
+    border:2px solid var(--brass-bright);
+    border-radius:var(--radius);
+    background:linear-gradient(180deg, rgba(228,193,88,0.12), transparent);
+    padding:16px;
+    margin-bottom:16px;
+    text-align:center;
+  }
+  .quickstart-btn{
+    width:100%;
+    font-size:18px;
+    padding:16px;
+    margin-bottom:8px;
+    background:var(--brass-bright);
+    border-color:var(--brass-bright);
+  }
+  .quickstart-card .hint{display:block;}
+
   .daily-card{
     border:1px solid var(--success);
     border-radius:var(--radius);
