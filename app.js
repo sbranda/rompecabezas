@@ -1895,17 +1895,34 @@
   }
 
   // ---------------- Buttons ----------------
+  function showGeneratingOverlay(){
+    document.getElementById('generatingOverlay').style.display = 'flex';
+  }
+  function hideGeneratingOverlay(){
+    document.getElementById('generatingOverlay').style.display = 'none';
+  }
+
+  // Cutting a couple hundred pieces (Maestro/Extremo) is synchronous work
+  // that can take a perceptible moment — showing the indicator, then
+  // waiting two frames before starting, guarantees the browser actually
+  // paints it before the heavy loop blocks the main thread. Without that
+  // wait, the indicator and the freeze would start on the same frame and
+  // the person would never see it appear at all.
+  function runGeneratePuzzle(resumeData){
+    showGeneratingOverlay();
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      generatePuzzle(resumeData);
+      updateTurnUI();
+      hideGeneratingOverlay();
+    }));
+  }
+
   function enterPlayMode(resumeData){
     document.getElementById('setupPanel').classList.add('hide');
     document.getElementById('board-area').classList.add('visible');
     document.body.classList.add('playing');
     setStep(3);
-    // wait one frame so boardWrap has its final flex-allocated size
-    // before we measure it to fit the board.
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      generatePuzzle(resumeData);
-      updateTurnUI();
-    }));
+    runGeneratePuzzle(resumeData);
   }
 
   // ---------------- Quick start: one tap, no decisions ----------------
@@ -2027,21 +2044,19 @@
       const ok = confirm(`Vas a perder ${n===1 ? 'la pieza que ya colocaste' : `las ${n} piezas que ya colocaste`} — mezclar genera un corte nuevo, no se puede recuperar. ¿Mezclar igual?`);
       if(!ok) return;
     }
-    generatePuzzle();
-    updateTurnUI();
+    runGeneratePuzzle();
   });
 
   document.getElementById('shareResultBtn').addEventListener('click', shareResult);
 
   document.getElementById('playAgainBtn').addEventListener('click', ()=>{
     document.getElementById('winOverlay').classList.remove('show');
-    generatePuzzle();
-    updateTurnUI();
+    runGeneratePuzzle();
   });
 
   document.getElementById('retryTimeAttackBtn').addEventListener('click', ()=>{
     document.getElementById('timeUpOverlay').classList.remove('show');
-    generatePuzzle();
+    runGeneratePuzzle();
   });
 
   document.getElementById('timeUpChangeBtn').addEventListener('click', ()=>{
