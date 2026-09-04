@@ -1566,6 +1566,20 @@
           returnToTray();
           piece.container = 'tray';
         }
+
+        // "Close, but not quite" feedback: a drop that landed reasonably
+        // near its correct slot but not close enough to snap would
+        // otherwise look identical to any other random free drop — nothing
+        // told the person their attempt was even registered. A near miss
+        // gets a quick shake and a soft red flash instead of silence.
+        if(dist < threshold * 2.5){
+          el.classList.add('near-miss');
+          vibrateFeedback([12,40,12]);
+          el.addEventListener('animationend', function clearNearMiss(){
+            el.classList.remove('near-miss');
+            el.removeEventListener('animationend', clearNearMiss);
+          });
+        }
       }
 
       saveProgress();
