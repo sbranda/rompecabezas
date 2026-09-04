@@ -710,6 +710,17 @@
   // actually persists once it's running on the person's own site.
   const PROGRESS_KEY = 'rompecabezas:progress';
 
+  // Briefly flashes a "✓ Guardado" badge in the corner of the board so
+  // saving — which otherwise happens invisibly in the background — is
+  // actually confirmed to the person, not just assumed.
+  let saveIndicatorTimer = null;
+  function flashSaveIndicator(){
+    const el = document.getElementById('saveIndicator');
+    el.classList.add('show');
+    clearTimeout(saveIndicatorTimer);
+    saveIndicatorTimer = setTimeout(()=> el.classList.remove('show'), 1400);
+  }
+
   function saveProgress(){
     try{
       if(!state.totalPieces || !state.timerStart) return;
@@ -732,6 +743,7 @@
         pieces: state.pieces.map(p => ({r:p.r, c:p.c, rotation:p.rotation, placed:p.placed})),
       };
       localStorage.setItem(PROGRESS_KEY, JSON.stringify(payload));
+      flashSaveIndicator();
     }catch(err){
       // Storage full, disabled, or unavailable (e.g. private browsing) —
       // saving progress is a nice-to-have, never worth interrupting play for.
