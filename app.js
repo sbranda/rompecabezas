@@ -1955,6 +1955,11 @@
   });
 
   document.getElementById('changeImgBtn').addEventListener('click', ()=>{
+    if(state.placedCount > 0){
+      const n = state.placedCount;
+      const ok = confirm(`Tenés ${n===1 ? '1 pieza colocada' : `${n} piezas colocadas`}. Queda${n===1?'':'n'} guardada${n===1?'':'s'} y podés continuarla${n===1?'':'s'} después, pero si armás un rompecabezas nuevo se va${n===1?'':'n'} a perder. ¿Volver a elegir imagen igual?`);
+      if(!ok) return;
+    }
     stopTimer();
     document.getElementById('board-area').classList.remove('visible');
     document.getElementById('setupPanel').classList.remove('hide');
@@ -2016,6 +2021,11 @@
   })();
 
   document.getElementById('shuffleBtn').addEventListener('click', ()=>{
+    if(state.placedCount > 0){
+      const n = state.placedCount;
+      const ok = confirm(`Vas a perder ${n===1 ? 'la pieza que ya colocaste' : `las ${n} piezas que ya colocaste`} — mezclar genera un corte nuevo, no se puede recuperar. ¿Mezclar igual?`);
+      if(!ok) return;
+    }
     generatePuzzle();
     updateTurnUI();
   });
