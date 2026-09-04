@@ -591,6 +591,19 @@
     flex-direction:column;
     gap:6px;
   }
+  .help-list{
+    margin:0;
+    padding-left:20px;
+    text-align:left;
+    max-height:min(60vh, 460px);
+    overflow-y:auto;
+    color:var(--paper);
+    font-size:13px;
+    line-height:1.6;
+  }
+  .help-list li{margin-bottom:12px;}
+  .help-list li:last-child{margin-bottom:0;}
+  .help-list strong{color:var(--brass-bright);}
   .history-item{
     display:flex;
     justify-content:space-between;

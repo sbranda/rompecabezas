@@ -2116,6 +2116,14 @@
     document.getElementById('bestTimesOverlay').classList.remove('show');
   });
 
+  // ---------------- Help overlay ----------------
+  document.getElementById('helpBtn').addEventListener('click', ()=>{
+    document.getElementById('helpOverlay').classList.add('show');
+  });
+  document.getElementById('closeHelpBtn').addEventListener('click', ()=>{
+    document.getElementById('helpOverlay').classList.remove('show');
+  });
+
   document.getElementById('dailyBtn').addEventListener('click', ()=>{
     const dateStr = todayStr();
     state.dailyMode = true;

@@ -21,6 +21,7 @@
   <div class="splash-sub">Agilidad y Desafío</div>
 </div>
 
+<button class="sound-toggle" id="helpBtn" style="right:54px;" title="Cómo se juega" aria-label="Cómo se juega">❓</button>
 <button class="sound-toggle" id="soundToggleBtn" title="Sonido" aria-label="Silenciar o activar el sonido">🔊</button>
 
 <div class="wrap">
@@ -232,6 +233,23 @@
   </div>
   <div class="overlay-actions">
     <button class="btn" id="closeBestTimesBtn">Cerrar</button>
+  </div>
+</div>
+
+<div id="helpOverlay" class="overlay">
+  <h2>❓ Cómo se juega</h2>
+  <div class="history-panel">
+    <ul class="help-list">
+      <li><strong>Colocar una pieza:</strong> arrastrala desde la bandeja hasta el tablero. Cuando esté cerca del lugar correcto, va a encajar sola.</li>
+      <li><strong>Rotar una pieza:</strong> tocala sin arrastrar (un toque simple) para girarla 90°. Solo hace falta si activaste "Piezas rotadas" en Opciones avanzadas.</li>
+      <li><strong>¿No encontrás una pieza?</strong> hacé doble-tap en el hueco vacío del tablero — la pieza correspondiente brilla en la bandeja para que la ubiques.</li>
+      <li><strong>Acercar el tablero:</strong> pellizcá con dos dedos, o usá los botones ➕➖⟲ que aparecen en la esquina del tablero. Útil con muchas piezas chicas.</li>
+      <li><strong>Ver la imagen completa:</strong> botón "Referencia" arriba del tablero, para guiarte mientras armás.</li>
+      <li><strong>Sonido:</strong> el botón 🔊 (arriba a la derecha) lo silencia o activa en cualquier momento.</li>
+    </ul>
+  </div>
+  <div class="overlay-actions">
+    <button class="btn" id="closeHelpBtn">Entendido</button>
   </div>
 </div>
 
