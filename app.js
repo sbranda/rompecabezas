@@ -2269,6 +2269,56 @@
     });
   }
 
+  // ---------------- Install banner ----------------
+  // Already running as an installed app (standalone window, no browser
+  // chrome)? Then there's nothing to offer — this covers both the
+  // standard "display-mode" check and iOS Safari's older, non-standard
+  // navigator.standalone flag.
+  const alreadyInstalled = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+
+  if(!alreadyInstalled){
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const banner = document.getElementById('installBanner');
+    const installBtn = document.getElementById('installBtn');
+    let deferredPrompt = null;
+
+    if(isIOS){
+      // Safari on iOS has no programmatic install prompt at all — the only
+      // path is the person doing it manually via the Share sheet, so the
+      // banner just points them at that instead of offering a button that
+      // couldn't actually do anything.
+      installBtn.style.display = 'none';
+      document.getElementById('iosInstallHint').style.display = 'block';
+      banner.style.display = 'block';
+    } else {
+      // Everywhere else (Chrome/Edge/etc. on Android and desktop), the
+      // browser fires this event once it decides the page is installable.
+      // Capturing it lets our own styled button trigger the same native
+      // prompt on demand, instead of relying on the person noticing the
+      // browser's own (easy-to-miss) install icon.
+      window.addEventListener('beforeinstallprompt', (e)=>{
+        e.preventDefault();
+        deferredPrompt = e;
+        banner.style.display = 'block';
+      });
+
+      installBtn.addEventListener('click', async ()=>{
+        if(!deferredPrompt) return;
+        installBtn.disabled = true;
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice; // outcome is 'accepted' or 'dismissed'
+        deferredPrompt = null;
+        banner.style.display = 'none';
+        installBtn.disabled = false;
+      });
+    }
+
+    window.addEventListener('appinstalled', ()=>{
+      banner.style.display = 'none';
+    });
+  }
+
   // Splash screen: shown instantly on load (no network needed, it's just
   // markup+CSS), held for 5s so it reads as a proper launch screen, then
   // faded out.
