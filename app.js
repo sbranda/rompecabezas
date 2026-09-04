@@ -272,6 +272,7 @@
       }
     });
     availableBuiltins = results.filter(r=>r.ok);
+    document.getElementById('emptyGalleryMsg').style.display = availableBuiltins.length ? 'none' : 'block';
   });
 
   function addBuiltinThumb(thumbSrc, img){
