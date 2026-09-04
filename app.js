@@ -1370,6 +1370,14 @@
       }
     }
 
+    // Belt-and-suspenders against iOS Safari's long-press "Save Image /
+    // Copy" callout: the CSS (-webkit-touch-callout:none, user-select:none,
+    // touch-action:none) already applied to .piece normally covers this,
+    // but Safari has a known quirk where <canvas> elements can still pop
+    // the native context menu on a long press regardless of that CSS.
+    // Explicitly cancelling the contextmenu event closes that gap.
+    el.addEventListener('contextmenu', (e)=> e.preventDefault());
+
     el.addEventListener('pointerdown', (e)=>{
       if(piece.placed || state.timeUp) return;
       activePointerId = e.pointerId;
