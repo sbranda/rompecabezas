@@ -2278,6 +2278,41 @@
       splash.classList.add('hide');
       setTimeout(()=>splash.remove(), 600);
     }
+    startOnboardingHighlight();
   }, 5000);
+
+  // ---------------- First-visit onboarding: point out the key buttons ----------------
+  const ONBOARD_KEY = 'rompecabezas:onboarded';
+  function startOnboardingHighlight(){
+    try{
+      if(localStorage.getItem(ONBOARD_KEY)) return; // already seen it
+    }catch(err){ return; }
+
+    const quickBtn = document.getElementById('quickStartBtn');
+    const helpBtnEl = document.getElementById('helpBtn');
+    const tooltip = document.getElementById('onboardTooltip');
+    quickBtn.classList.add('onboard-highlight');
+    helpBtnEl.classList.add('onboard-highlight');
+    tooltip.style.display = 'block';
+
+    let dismissed = false;
+    function dismiss(){
+      if(dismissed) return;
+      dismissed = true;
+      quickBtn.classList.remove('onboard-highlight');
+      helpBtnEl.classList.remove('onboard-highlight');
+      tooltip.style.display = 'none';
+      try{ localStorage.setItem(ONBOARD_KEY, '1'); }catch(err){}
+    }
+
+    // Any real engagement with the app — not just these two buttons —
+    // means the person found their way in, so the highlight has done its
+    // job and shouldn't linger. A timeout covers anyone who scrolls past
+    // without clicking anything at all.
+    quickBtn.addEventListener('click', dismiss, {once:true});
+    helpBtnEl.addEventListener('click', dismiss, {once:true});
+    document.getElementById('generateBtn').addEventListener('click', dismiss, {once:true});
+    setTimeout(dismiss, 9000);
+  }
 
 })();
