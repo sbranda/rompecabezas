@@ -1826,6 +1826,114 @@
     }catch(err){ /* ditto */ }
   }
 
+  // ---------------- Ambient background music (synthesized, optional) ----------------
+  // No audio files here either — same reasoning as the click/win sounds.
+  // I can't actually listen to this from my end to judge how it sounds, so
+  // it leans on well-worn ambient-synth conventions to stay safe: a
+  // pentatonic note pool (any combination of notes from it sounds
+  // consonant, so there's no chord theory to get wrong), slow attack/
+  // release envelopes, and a low overall volume so it sits in the
+  // background rather than competing with the click/chime sound effects.
+  const MUSIC_KEY = 'rompecabezas:music';
+  try{
+    state.musicEnabled = localStorage.getItem(MUSIC_KEY) === '1'; // off by default — opt-in ambience
+  }catch(err){
+    state.musicEnabled = false;
+  }
+
+  const PENTATONIC = [130.81,146.83,164.81,196.00,220.00, // C3 D3 E3 G3 A3
+                       261.63,293.66,329.63,392.00,440.00, // C4 D4 E4 G4 A4
+                       523.25,587.33,659.25];              // C5 D5 E5
+  let musicChordTimer = null;
+  let musicSparkleTimer = null;
+
+  function scheduleAmbientChord(){
+    if(!state.musicEnabled) return;
+    const ctx = getAudioCtx();
+    if(ctx){
+      const now = ctx.currentTime;
+      const pool = PENTATONIC.slice(2, 11); // middle register only, for the sustained pad
+      const notes = [];
+      while(notes.length < 3){
+        const n = pool[Math.floor(Math.random()*pool.length)];
+        if(!notes.includes(n)) notes.push(n);
+      }
+      const attack = 2.5, hold = 3, release = 3.5, peak = 0.026;
+      notes.forEach((freq, i)=>{
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = i===0 ? 'sine' : 'triangle';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(peak, now+attack);
+        gain.gain.setValueAtTime(peak, now+attack+hold);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now+attack+hold+release);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now+attack+hold+release+0.1);
+      });
+    }
+    // Next chord's attack overlaps this one's release, so notes crossfade
+    // into each other instead of leaving audible gaps of silence.
+    musicChordTimer = setTimeout(scheduleAmbientChord, 5500);
+  }
+
+  function scheduleSparkle(){
+    if(!state.musicEnabled) return;
+    const ctx = getAudioCtx();
+    if(ctx){
+      const now = ctx.currentTime;
+      const freq = PENTATONIC[8 + Math.floor(Math.random()*5)];
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.05, now+0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now+1.6);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now+1.7);
+    }
+    musicSparkleTimer = setTimeout(scheduleSparkle, 4000 + Math.random()*6000);
+  }
+
+  function startAmbientMusic(){
+    if(!state.musicEnabled || musicChordTimer || musicSparkleTimer) return; // already running, or turned off
+    scheduleAmbientChord();
+    scheduleSparkle();
+  }
+  function stopAmbientMusic(){
+    clearTimeout(musicChordTimer); musicChordTimer = null;
+    clearTimeout(musicSparkleTimer); musicSparkleTimer = null;
+  }
+
+  // Pause while the tab isn't visible (saves battery/CPU for nothing
+  // audible), resume automatically when the person comes back.
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.hidden) stopAmbientMusic();
+    else if(state.musicEnabled) startAmbientMusic();
+  });
+
+  // Audio can't start until a real user gesture happens — if the
+  // preference was already on from a previous visit, the very first tap
+  // anywhere kicks it off.
+  if(state.musicEnabled){
+    const kickstartMusic = ()=>{ startAmbientMusic(); document.removeEventListener('pointerdown', kickstartMusic); };
+    document.addEventListener('pointerdown', kickstartMusic, {once:true});
+  }
+
+  const musicToggleEl = document.getElementById('musicToggle');
+  musicToggleEl.classList.toggle('active', state.musicEnabled);
+  musicToggleEl.setAttribute('aria-pressed', String(state.musicEnabled));
+  musicToggleEl.addEventListener('click', ()=>{
+    state.musicEnabled = !state.musicEnabled;
+    musicToggleEl.classList.toggle('active', state.musicEnabled);
+    musicToggleEl.setAttribute('aria-pressed', String(state.musicEnabled));
+    try{ localStorage.setItem(MUSIC_KEY, state.musicEnabled ? '1' : '0'); }catch(err){}
+    if(state.musicEnabled) startAmbientMusic(); else stopAmbientMusic();
+  });
+
   // ---------------- Stats / timer ----------------
   function updateStats(){
     document.getElementById('statPieces').textContent = `${state.placedCount}/${state.totalPieces}`;
