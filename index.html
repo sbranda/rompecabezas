@@ -80,6 +80,7 @@
         <button class="btn" id="dailyBtn">Jugar el desafío de hoy</button>
         <button class="btn secondary" id="openHistoryBtn">📜 Ver historial</button>
         <button class="btn secondary" id="openBestTimesBtn">🏆 Mejores tiempos</button>
+        <button class="btn secondary" id="openCollectionBtn">🖼️ Colección</button>
       </div>
       <div class="daily-stats" id="dailyStats"></div>
     </div>
@@ -265,6 +266,27 @@
   </div>
   <div class="overlay-actions">
     <button class="btn" id="closeHelpBtn">Entendido</button>
+  </div>
+</div>
+
+<div id="collectionOverlay" class="overlay">
+  <h2>🖼️ Colección</h2>
+  <div class="history-panel">
+    <div id="collectionSummary" class="history-summary"></div>
+    <div id="collectionGrid" class="collection-grid"></div>
+  </div>
+  <div class="overlay-actions">
+    <button class="btn" id="closeCollectionBtn">Cerrar</button>
+  </div>
+</div>
+
+<div id="collectionLightbox" class="overlay">
+  <div class="lightbox-content">
+    <img id="lightboxImg" alt="">
+    <div id="lightboxCaption" class="lightbox-caption"></div>
+  </div>
+  <div class="overlay-actions">
+    <button class="btn" id="closeLightboxBtn">Cerrar</button>
   </div>
 </div>
 

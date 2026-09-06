@@ -838,6 +838,26 @@
     return `${m}:${s}`;
   }
 
+  // A small (not full-resolution) JPEG snapshot of the completed picture,
+  // stored alongside each history entry for the visual "Colección" — kept
+  // deliberately modest in size (max ~360px, moderate JPEG quality) since
+  // this rides along with every single completed puzzle in localStorage,
+  // which has a hard, fairly small per-origin size limit.
+  function captureThumbnail(srcCanvas){
+    try{
+      const maxDim = 360;
+      const scale = Math.min(1, maxDim / Math.max(srcCanvas.width, srcCanvas.height));
+      const w = Math.round(srcCanvas.width * scale);
+      const h = Math.round(srcCanvas.height * scale);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(srcCanvas, 0, 0, w, h);
+      return c.toDataURL('image/jpeg', 0.6);
+    }catch(err){
+      return null; // e.g. a tainted canvas from a CORS-restricted image — skip the thumbnail, not the whole save
+    }
+  }
+
   function renderHistory(){
     const list = loadHistory();
     const summaryEl = document.getElementById('historySummary');
@@ -998,6 +1018,57 @@
       </tr>
       ${rowsHtml}
     `;
+  }
+
+  // ---------------- Visual collection: a gallery of completed puzzles ----------------
+  function renderCollection(){
+    const history = loadHistory();
+    const summaryEl = document.getElementById('collectionSummary');
+    const gridEl = document.getElementById('collectionGrid');
+
+    if(!history.length){
+      summaryEl.textContent = 'Todavía no completaste ningún rompecabezas.';
+      gridEl.innerHTML = '<div class="history-empty">Cuando termines uno, su imagen va a aparecer acá.</div>';
+      return;
+    }
+
+    const withThumbs = history.filter(e=>e.thumb).length;
+    summaryEl.innerHTML = `<b>${history.length}</b> rompecabezas completados` +
+      (withThumbs < history.length ? ` · ${withThumbs} con imagen guardada` : '');
+
+    gridEl.innerHTML = '';
+    history.forEach((entry, i)=>{
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'collection-thumb' + (entry.thumb ? '' : ' no-image');
+      if(entry.thumb){
+        btn.style.backgroundImage = `url(${entry.thumb})`;
+      } else {
+        btn.textContent = '🧩'; // older entries saved before this feature existed
+      }
+      btn.setAttribute('aria-label', `${entry.label} · ${formatMMSS(entry.timeSec)}`);
+      const timeBadge = document.createElement('span');
+      timeBadge.className = 'ct-time';
+      timeBadge.textContent = formatMMSS(entry.timeSec);
+      btn.appendChild(timeBadge);
+      btn.addEventListener('click', ()=> openLightbox(entry));
+      gridEl.appendChild(btn);
+    });
+  }
+
+  function openLightbox(entry){
+    const img = document.getElementById('lightboxImg');
+    const caption = document.getElementById('lightboxCaption');
+    if(entry.thumb){
+      img.style.display = 'block';
+      img.src = entry.thumb;
+    } else {
+      img.style.display = 'none';
+    }
+    const d = new Date(entry.completedAt);
+    const dateStr = d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric'});
+    caption.innerHTML = `<b>${escapeHtml(entry.label||'Rompecabezas')}</b>${entry.totalPieces} piezas · ${formatMMSS(entry.timeSec)} · ${dateStr}`;
+    document.getElementById('collectionLightbox').classList.add('show');
   }
 
   // ---------------- Hint: double-tap an empty slot to find its piece ----------------
@@ -1832,6 +1903,7 @@
       rotationEnabled: state.rotationEnabled,
       timeAttack: state.timeAttackEnabled,
       isDaily: state.dailyMode,
+      thumb: captureThumbnail(state.srcCanvas),
     });
     clearSavedProgress();
     const statsLine = `${state.sourceLabel} · ${state.totalPieces} piezas · tiempo ${timeText}${dailyExtra}${raceExtra}${turnsExtra}`;
@@ -2172,6 +2244,18 @@
   });
   document.getElementById('closeHelpBtn').addEventListener('click', ()=>{
     document.getElementById('helpOverlay').classList.remove('show');
+  });
+
+  // ---------------- Collection overlay + lightbox ----------------
+  document.getElementById('openCollectionBtn').addEventListener('click', ()=>{
+    renderCollection();
+    document.getElementById('collectionOverlay').classList.add('show');
+  });
+  document.getElementById('closeCollectionBtn').addEventListener('click', ()=>{
+    document.getElementById('collectionOverlay').classList.remove('show');
+  });
+  document.getElementById('closeLightboxBtn').addEventListener('click', ()=>{
+    document.getElementById('collectionLightbox').classList.remove('show');
   });
 
   document.getElementById('dailyBtn').addEventListener('click', ()=>{
