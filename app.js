@@ -463,6 +463,50 @@
   });
   state.difficulty = DIFFICULTIES[1];
 
+  // ---------------- Persisted game preferences ----------------
+  // Sound already persists on its own key; these four toggles are opt-in
+  // "how I like to play" settings that are just as reasonable to remember
+  // across sessions, instead of silently resetting to off every time.
+  const PREFS_KEY = 'rompecabezas:prefs';
+  function savePrefs(){
+    try{
+      localStorage.setItem(PREFS_KEY, JSON.stringify({
+        rotation: state.rotationEnabled,
+        timeAttack: state.timeAttackEnabled,
+        hideTimer: state.hideTimer,
+        markEdges: state.markEdgesEnabled,
+      }));
+    }catch(err){ /* best-effort — never worth interrupting play for */ }
+  }
+  function loadAndApplyPrefs(){
+    let prefs;
+    try{
+      const raw = localStorage.getItem(PREFS_KEY);
+      if(!raw) return;
+      prefs = JSON.parse(raw);
+    }catch(err){ return; }
+
+    state.rotationEnabled = !!prefs.rotation;
+    rotationToggleEl.classList.toggle('active', state.rotationEnabled);
+    rotationToggleEl.setAttribute('aria-pressed', String(state.rotationEnabled));
+
+    state.timeAttackEnabled = !!prefs.timeAttack;
+    timeAttackToggleEl.classList.toggle('active', state.timeAttackEnabled);
+    timeAttackToggleEl.setAttribute('aria-pressed', String(state.timeAttackEnabled));
+
+    // hideTimer and timeAttack are mutually exclusive — if a stale/edited
+    // prefs blob somehow had both, timeAttack (the one restored above) wins.
+    state.hideTimer = !!prefs.hideTimer && !state.timeAttackEnabled;
+    noTimerToggleEl.classList.toggle('active', state.hideTimer);
+    noTimerToggleEl.setAttribute('aria-pressed', String(state.hideTimer));
+
+    state.markEdgesEnabled = !!prefs.markEdges;
+    markEdgesToggleEl.classList.toggle('active', state.markEdgesEnabled);
+    markEdgesToggleEl.setAttribute('aria-pressed', String(state.markEdgesEnabled));
+
+    updateComboWarning();
+  }
+
   // ---------------- UI: rotation toggle ----------------
   const rotationToggleEl = document.getElementById('rotationToggle');
   rotationToggleEl.addEventListener('click', ()=>{
@@ -470,6 +514,7 @@
     rotationToggleEl.classList.toggle('active', state.rotationEnabled);
     rotationToggleEl.setAttribute('aria-pressed', String(state.rotationEnabled));
     updateComboWarning();
+    savePrefs();
   });
 
   // ---------------- UI: time attack toggle ----------------
@@ -486,6 +531,7 @@
       noTimerToggleEl.setAttribute('aria-pressed', 'false');
     }
     updateComboWarning();
+    savePrefs();
   });
 
   // ---------------- UI: relaxed / no-visible-timer toggle ----------------
@@ -499,6 +545,7 @@
       timeAttackToggleEl.classList.remove('active');
       timeAttackToggleEl.setAttribute('aria-pressed', 'false');
     }
+    savePrefs();
   });
 
   // ---------------- UI: mark edge pieces toggle ----------------
@@ -507,7 +554,10 @@
     state.markEdgesEnabled = !state.markEdgesEnabled;
     markEdgesToggleEl.classList.toggle('active', state.markEdgesEnabled);
     markEdgesToggleEl.setAttribute('aria-pressed', String(state.markEdgesEnabled));
+    savePrefs();
   });
+
+  loadAndApplyPrefs();
 
   // ---------------- Jigsaw geometry ----------------
   // edge sign convention: +1 = tab pointing outward (away from piece a's own body, into neighbor)
