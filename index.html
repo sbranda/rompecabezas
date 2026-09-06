@@ -78,21 +78,27 @@
       <span class="hint">Mismo rompecabezas para todos hoy — Torre Eiffel, dificultad Difícil, sin rotación. Se repite cada día.</span>
       <div class="row" style="margin-top:10px; margin-bottom:0;">
         <button class="btn" id="dailyBtn">Jugar el desafío de hoy</button>
-        <button class="btn secondary" id="openHistoryBtn">📜 Ver historial</button>
-        <button class="btn secondary" id="openBestTimesBtn">🏆 Mejores tiempos</button>
-        <button class="btn secondary" id="openCollectionBtn">🖼️ Colección</button>
       </div>
       <div class="daily-stats" id="dailyStats"></div>
     </div>
 
-    <details class="daily-card collapsible-card" id="multiplayerCard">
-      <summary>👥 Multijugador local</summary>
+    <details class="daily-card collapsible-card" id="moreOptionsCard">
+      <summary>🗂️ Más opciones</summary>
+
+      <h3 class="sub-section-title">👥 Multijugador local</h3>
       <span class="hint">Para dos personas compartiendo el mismo dispositivo. Elegí un modo, después seguí normalmente con la imagen y la dificultad.</span>
-      <div class="row" style="margin-top:10px; margin-bottom:0;">
+      <div class="row" style="margin-top:10px;">
         <button class="btn secondary" id="turnsModeBtn">🔄 Por turnos</button>
         <button class="btn secondary" id="raceModeBtn">🏁 Carrera</button>
       </div>
-      <div class="daily-stats" id="multiplayerStatus"></div>
+      <div class="daily-stats" id="multiplayerStatus" style="margin-bottom:14px;"></div>
+
+      <h3 class="sub-section-title">📊 Tus partidas</h3>
+      <div class="row" style="margin-bottom:0;">
+        <button class="btn secondary" id="openHistoryBtn">📜 Ver historial</button>
+        <button class="btn secondary" id="openBestTimesBtn">🏆 Mejores tiempos</button>
+        <button class="btn secondary" id="openCollectionBtn">🖼️ Colección</button>
+      </div>
     </details>
 
     <h2>01 · Elegí la imagen</h2>
