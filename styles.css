@@ -837,7 +837,12 @@
 
   @media (max-width:600px){
     .cartouche{flex-direction:column;}
-    .title-cell{border-right:none;border-bottom:1px solid var(--steel-dim);}
+    /* .title-cell's flex-basis of 220px is meant as a target WIDTH for the
+       normal row layout — once the cartouche switches to a column here,
+       that same flex-basis applies to height instead, forcing a tall,
+       mostly-empty box. Resetting the basis (and disabling grow) keeps it
+       sized to its actual content on mobile. */
+    .cartouche .title-cell{flex:0 0 auto; border-right:none;border-bottom:1px solid var(--steel-dim);}
     .stat-cell{border-right:none;border-bottom:1px solid var(--steel-dim);}
   }
 
